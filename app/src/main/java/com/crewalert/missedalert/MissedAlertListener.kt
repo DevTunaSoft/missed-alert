@@ -57,6 +57,9 @@ class MissedAlertListener : NotificationListenerService() {
             }
             return
         }
+        // Remember user-acknowledged keys so reconnect does not recreate dismissed alerts.
+        val acknowledged = AlertStore.all(this).firstOrNull { it.key == sbn.key }
+        if (acknowledged != null) AlertStore.markAcked(this, listOf(acknowledged))
         if (AlertStore.remove(this, sbn.key)) {
             val left = AlertStore.count(this)
             EventLog.write(this, "alert_removed", "pkg" to sbn.packageName,

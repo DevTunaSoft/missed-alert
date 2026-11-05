@@ -68,6 +68,7 @@ class StatusActivity : Activity() {
                 this,
                 Item("test", packageName, "Test alert", "Repeats every minute until acknowledged", System.currentTimeMillis())
             )
+            AlertStore.resetRepeats(this)
             Scheduler.scheduleNext(this)
         }
         btn("Acknowledge all") { Acker.ackAll(this, "status_screen") }

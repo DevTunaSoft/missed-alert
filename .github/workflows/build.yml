@@ -31,6 +31,9 @@ jobs:
       - name: Run source regression checks
         run: python3 tests/source_regression.py
 
+      - name: Run randomized reminder state-machine checks
+        run: python3 tests/fuzz_reminder_model.py
+
       - name: Run Android lint and unit test tasks
         run: gradle :app:lintDebug :app:testDebugUnitTest --stacktrace
 
