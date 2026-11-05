@@ -25,11 +25,39 @@ class KnoxBootstrapTest {
     }
 
     @Test fun launcherEntryIsInvisibleBootstrapNotSetupScreen() {
-        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            .setPackage(context.packageName)
-        val resolved = context.packageManager.queryIntentActivities(launcher, 0)
-        assertTrue(resolved.any { it.activityInfo.name.endsWith(".BootstrapActivity") })
-        assertFalse(resolved.any { it.activityInfo.name.endsWith(".StatusActivity") })
+        // Inspect the actual manifest; Robolectric package-manager query results
+        // vary with simulated OS and are not evidence of manifest configuration.
+        val manifest = listOf(
+            java.io.File("src/main/AndroidManifest.xml"),
+            java.io.File("app/src/main/AndroidManifest.xml")
+        ).first { it.isFile }
+        val document = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(manifest)
+        val activities = document.getElementsByTagName("activity")
+        fun launches(name: String): Boolean {
+            for (i in 0 until activities.length) {
+                val activity = activities.item(i) as org.w3c.dom.Element
+                if (activity.getAttribute("android:name") != name) continue
+                val filters = activity.getElementsByTagName("intent-filter")
+                for (j in 0 until filters.length) {
+                    val f = filters.item(j) as org.w3c.dom.Element
+                    val actions = f.getElementsByTagName("action")
+                    val categories = f.getElementsByTagName("category")
+                    val main = (0 until actions.length).any {
+                        (actions.item(it) as org.w3c.dom.Element).getAttribute("android:name") ==
+                            "android.intent.action.MAIN"
+                    }
+                    val launcher = (0 until categories.length).any {
+                        (categories.item(it) as org.w3c.dom.Element).getAttribute("android:name") ==
+                            "android.intent.category.LAUNCHER"
+                    }
+                    if (main && launcher) return true
+                }
+            }
+            return false
+        }
+        assertTrue(launches(".BootstrapActivity"))
+        assertFalse(launches(".StatusActivity"))
     }
 
     @Test fun firstRunInitializesWatchdogWithoutButtonPress() {
