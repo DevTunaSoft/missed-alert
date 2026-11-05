@@ -24,7 +24,10 @@ object Scheduler {
             return false
         }
         val max = Config.maxRepeats(c)
-        if (max > 0 && AlertStore.repeats(c) >= max) return false
+        if (max > 0 && AlertStore.repeats(c) >= max) {
+            cancel(c)
+            return false
+        }
         val am = c.getSystemService(AlarmManager::class.java)
         val interval = Config.intervalMs(c)
         val p = pi(c, PendingIntent.FLAG_UPDATE_CURRENT) ?: return false
@@ -73,7 +76,10 @@ object Scheduler {
 
     fun ensureScheduled(c: Context) {
         val max = Config.maxRepeats(c)
-        if (max > 0 && AlertStore.repeats(c) >= max) return
+        if (max > 0 && AlertStore.repeats(c) >= max) {
+            cancel(c)
+            return
+        }
         if (AlertStore.count(c) > 0 && !isPending(c)) {
             EventLog.write(c, "alarm_recover", "late_ms" to
                 (SystemClock.elapsedRealtime() - AlertStore.nextAt(c)).coerceAtLeast(0L))
