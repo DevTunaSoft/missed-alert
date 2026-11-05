@@ -86,7 +86,11 @@ object AlertStore {
             item.key,
             JSONObject().put("pkg", item.pkg).put("t", item.postTime)
         )
-        p(c).edit().putString("items", o.toString()).putString("items_backup", o.toString()).commit()
+        if (!p(c).edit().putString("items", o.toString())
+                .putString("items_backup", o.toString()).commit()) {
+            EventLog.write(c, "items_commit_failed")
+            throw IllegalStateException("Pending alert write failed")
+        }
     }
 
     /** Ignore stale removal callbacks for a reused notification key.
@@ -118,7 +122,11 @@ object AlertStore {
         val o = objectItems(c)
         val had = o.has(key)
         o.remove(key)
-        p(c).edit().putString("items", o.toString()).putString("items_backup", o.toString()).commit()
+        if (!p(c).edit().putString("items", o.toString())
+                .putString("items_backup", o.toString()).commit()) {
+            EventLog.write(c, "items_commit_failed")
+            throw IllegalStateException("Pending alert write failed")
+        }
         return had
     }
 
@@ -153,7 +161,11 @@ object AlertStore {
 
     @Synchronized
     fun clear(c: Context) {
-        p(c).edit().putString("items", "{}").putString("items_backup", "{}").putInt("repeats", 0).commit()
+        if (!p(c).edit().putString("items", "{}").putString("items_backup", "{}")
+                .putInt("repeats", 0).commit()) {
+            EventLog.write(c, "items_commit_failed")
+            throw IllegalStateException("Pending alert clear failed")
+        }
     }
 
     fun count(c: Context) = all(c).size
@@ -169,7 +181,10 @@ object AlertStore {
         val trimmed = JSONArray()
         val start = (arr.length() - 200).coerceAtLeast(0)
         for (i in start until arr.length()) trimmed.put(arr.get(i))
-        p(c).edit().putString("acked", trimmed.toString()).commit()
+        if (!p(c).edit().putString("acked", trimmed.toString()).commit()) {
+            EventLog.write(c, "ack_persist_failed")
+            throw IllegalStateException("Acknowledgment markers write failed")
+        }
     }
 
     @Synchronized
