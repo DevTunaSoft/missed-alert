@@ -52,12 +52,23 @@ class AlertStoreCorruptionTest {
             .getString("items", null))
     }
 
-    @Test fun corruptAcknowledgmentMarkersDontCrashNotificationCheck() {
-        context.getSharedPreferences("alerts", Context.MODE_PRIVATE).edit()
-            .putString("acked", "{invalid-array").commit()
-        assertFalse(AlertStore.isAcked(context, "k", 99L))
-        AlertStore.markAcked(context, listOf(Item("k", "com.test", "", "", 99L)))
+    @Test fun corruptAcknowledgmentMarkersRestoreKnownGoodHistory() {
+        val item = Item("k", "com.test", "", "", 99L)
+        AlertStore.markAcked(context, listOf(item))
+        val prefs = context.getSharedPreferences("alerts", Context.MODE_PRIVATE)
+        prefs.edit().putString("acked", "{invalid-array").commit()
         assertTrue(AlertStore.isAcked(context, "k", 99L))
+        assertEquals("{invalid-array", prefs.getString("acked_corrupt_snapshot", null))
+    }
+
+    @Test fun unrecoverableAcknowledgmentCorruptionDoesNotSilentlyResetHistory() {
+        val prefs = context.getSharedPreferences("alerts", Context.MODE_PRIVATE)
+        prefs.edit().putString("acked", "{invalid-array").commit()
+        try {
+            AlertStore.isAcked(context, "k", 99L)
+            fail("expected explicit recovery failure")
+        } catch (_: IllegalStateException) { }
+        assertEquals("{invalid-array", prefs.getString("acked", null))
     }
 
     @Test fun randomizedMalformedEntriesNeverHideValidRecords() {
