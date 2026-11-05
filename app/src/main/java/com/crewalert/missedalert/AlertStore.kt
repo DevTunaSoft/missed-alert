@@ -14,6 +14,7 @@ data class Item(
 
 /** Tiny persistent store so pending alerts survive process death. */
 object AlertStore {
+    private const val MAX_ACK_MARKERS = 4096
     private fun p(c: Context) = c.getSharedPreferences("alerts", Context.MODE_PRIVATE)
 
     /** Backups must be more than parseable JSON: reject missing or malformed entries.
@@ -55,7 +56,19 @@ object AlertStore {
         val raw = p(c).getString("acked", "[]") ?: "[]"
         return try { JSONArray(raw) } catch (e: Exception) {
             EventLog.write(c, "ack_markers_corrupt", "error" to e.javaClass.simpleName)
-            JSONArray()
+            val backup = p(c).getString("acked_backup", null)
+            val restored = try { backup?.let { JSONArray(it) } } catch (_: Exception) { null }
+            if (restored != null && backup != null &&
+                (0 until restored.length()).all { restored.optString(it).isNotEmpty() }) {
+                if (p(c).edit().putString("acked_corrupt_snapshot", raw)
+                        .putString("acked", backup).commit()) {
+                    EventLog.write(c, "ack_markers_restored", "count" to restored.length())
+                    return restored
+                }
+            }
+            // Markers are deduplication state; failing open would re-arm old dispatches.
+            // Preserve corruption for IT instead of silently treating all as unacknowledged.
+            throw IllegalStateException("Acknowledgment markers corrupted without usable backup", e)
         }
     }
 
@@ -104,13 +117,14 @@ object AlertStore {
         val acked = ackArray(c)
         acked.put("$key|$postTime")
         val trimmed = JSONArray()
-        for (i in (acked.length() - 200).coerceAtLeast(0) until acked.length()) {
+        for (i in (acked.length() - MAX_ACK_MARKERS).coerceAtLeast(0) until acked.length()) {
             trimmed.put(acked.get(i))
         }
         items.remove(key)
         if (!p(c).edit().putString("items", items.toString())
                 .putString("items_backup", items.toString())
-                .putString("acked", trimmed.toString()).commit()) {
+                .putString("acked", trimmed.toString())
+                .putString("acked_backup", trimmed.toString()).commit()) {
             EventLog.write(c, "ack_persist_failed")
             return false
         }
@@ -147,12 +161,13 @@ object AlertStore {
             count++
         }
         val trimmed = JSONArray()
-        for (i in (markers.length() - 200).coerceAtLeast(0) until markers.length()) {
+        for (i in (markers.length() - MAX_ACK_MARKERS).coerceAtLeast(0) until markers.length()) {
             trimmed.put(markers.get(i))
         }
         if (!p(c).edit().putString("items", "{}")
                 .putString("items_backup", "{}")
                 .putString("acked", trimmed.toString())
+                .putString("acked_backup", trimmed.toString())
                 .putInt("repeats", 0).commit()) {
             throw IllegalStateException("Unable to persist bulk acknowledgment")
         }
@@ -179,9 +194,10 @@ object AlertStore {
         val arr = ackArray(c)
         items.forEach { arr.put("${it.key}|${it.postTime}") }
         val trimmed = JSONArray()
-        val start = (arr.length() - 200).coerceAtLeast(0)
+        val start = (arr.length() - MAX_ACK_MARKERS).coerceAtLeast(0)
         for (i in start until arr.length()) trimmed.put(arr.get(i))
-        if (!p(c).edit().putString("acked", trimmed.toString()).commit()) {
+        if (!p(c).edit().putString("acked", trimmed.toString())
+                .putString("acked_backup", trimmed.toString()).commit()) {
             EventLog.write(c, "ack_persist_failed")
             throw IllegalStateException("Acknowledgment markers write failed")
         }
