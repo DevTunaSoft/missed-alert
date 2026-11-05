@@ -26,6 +26,10 @@ class MissedAlertListener : NotificationListenerService() {
         instance = this
         Notifier.ensureChannel(this)
         RecoveryJobService.ensureScheduled(this)
+        // Recreate a missing reminder alarm after system rebind or process recreation.
+        try { Scheduler.ensureScheduled(this) } catch (e: Exception) {
+            EventLog.write(this, "listener_alarm_recover_failed", "error" to e.javaClass.simpleName)
+        }
         val active = try { activeNotifications } catch (e: Exception) { null }
         EventLog.write(this, "listener_connected", "active" to active?.size, "pending" to AlertStore.count(this))
         // Pick up anything already sitting in the shade (e.g. after the service was restarted).
