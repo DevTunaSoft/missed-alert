@@ -37,11 +37,15 @@ class ReAlertReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             EventLog.write(context, "reminder_failed", "error" to e.javaClass.simpleName)
         } finally {
-            if (AlertStore.count(context) > 0) {
-                val max = Config.maxRepeats(context)
-                if (max <= 0 || AlertStore.repeats(context) < max) Scheduler.scheduleNext(context)
+            // Always transition scheduling state, even when a repeat limit is
+            // reached or a notification fails. scheduleNext cancels at the limit.
+            try {
+                Scheduler.scheduleNext(context)
+            } catch (e: Exception) {
+                EventLog.write(context, "alarm_reschedule_failed", "error" to e.javaClass.simpleName)
+            } finally {
+                RecoveryJobService.ensureScheduled(context)
             }
-            RecoveryJobService.ensureScheduled(context)
         }
         }
     }
