@@ -67,7 +67,8 @@ object Notifier {
             c, 3,
             Intent(c, AckActivity::class.java)
                 .putExtra("pkg", items.last().pkg)
-                .putExtra("key", items.last().key),
+                .putExtra("key", items.last().key)
+                .putExtra("post_time", items.last().postTime),
             flags
         )
 

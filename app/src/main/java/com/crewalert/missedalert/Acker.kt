@@ -7,11 +7,12 @@ import android.content.Intent
 object Acker {
     /** Acknowledge everything pending: stop the alarm, clear our reminder, remember what was acked. */
     /** Opening one source app acknowledges only that alert; other pending alerts remain. */
-    fun ackOne(c: Context, key: String, source: String = "tap_reminder") {
+    fun ackOne(c: Context, key: String, source: String = "tap_reminder", postTime: Long = -1L) {
         synchronized(AlertStore) {
-        val item = AlertStore.all(c).firstOrNull { it.key == key } ?: return
-        AlertStore.markAcked(c, listOf(item))
-        AlertStore.remove(c, key)
+        if (postTime <= 0L || !AlertStore.acknowledgeIfMatches(c, key, postTime)) {
+            EventLog.write(c, "acknowledge_one_stale", "source" to source)
+            return
+        }
         val left = AlertStore.count(c)
         if (left == 0) {
             Scheduler.cancel(c)
