@@ -28,13 +28,11 @@ object Acker {
 
     fun ackAll(c: Context, source: String = "unknown") {
         synchronized(AlertStore) {
-        val items = AlertStore.all(c)
         val reminders = AlertStore.repeats(c)
-        AlertStore.markAcked(c, items)
-        AlertStore.clear(c)
+        val cleared = AlertStore.acknowledgeAll(c)
         Scheduler.cancel(c)
         Notifier.cancel(c)
-        EventLog.write(c, "acknowledged", "source" to source, "cleared" to items.size, "reminders_sent" to reminders)
+        EventLog.write(c, "acknowledged", "source" to source, "cleared" to cleared, "reminders_sent" to reminders)
         }
     }
 }

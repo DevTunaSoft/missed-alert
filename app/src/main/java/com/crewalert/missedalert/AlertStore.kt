@@ -94,6 +94,34 @@ object AlertStore {
         return had
     }
 
+    /** Commit bulk acknowledgments and queue clearance together so a crash
+     * cannot leave an empty queue with missing acknowledgment markers.
+     */
+    @Synchronized
+    fun acknowledgeAll(c: Context): Int {
+        val source = objectItems(c)
+        val markers = ackArray(c)
+        val keys = source.keys()
+        var count = 0
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val entry = source.optJSONObject(key) ?: continue
+            if (!entry.has("t") || entry.optLong("t") <= 0L) continue
+            markers.put("$key|${entry.optLong("t")}")
+            count++
+        }
+        val trimmed = JSONArray()
+        for (i in (markers.length() - 200).coerceAtLeast(0) until markers.length()) {
+            trimmed.put(markers.get(i))
+        }
+        if (!p(c).edit().putString("items", "{}")
+                .putString("acked", trimmed.toString())
+                .putInt("repeats", 0).commit()) {
+            throw IllegalStateException("Unable to persist bulk acknowledgment")
+        }
+        return count
+    }
+
     @Synchronized
     fun clear(c: Context) {
         p(c).edit().putString("items", "{}").putInt("repeats", 0).commit()
