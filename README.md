@@ -1,4 +1,6 @@
-# Missed Alert – repeating reminder for missed texts / MDT alerts
+# Missed Alert – repeating reminder for missed texts, MDT alerts and missed calls
+
+**Zero-touch:** nobody opens or configures the app. Knox installs it and grants every permission by policy.
 
 Re-alerts every 60 s (default notification tone + vibration) until the alert is acknowledged.
 No UI interaction needed. Android 13+ (minSdk 33), Samsung A14–A17.
@@ -7,6 +9,9 @@ No UI interaction needed. Android 13+ (minSdk 33), Samsung A14–A17.
 1. `MissedAlertListener` (NotificationListenerService) sees every notification from watched apps:
    TraumaSoft MDT (`com.traumasoft.mdt` and `com.traumasoft.mdtv2`), Samsung Messages, Google Messages, AOSP MMS,
    plus any other packages you add via `extra_packages`.
+   **Missed phone calls** are detected from the dialer / Telecom missed-call notification
+   (`com.android.server.telecom` channel `TelecomMissedCalls`, Samsung incallui/dialer, Google dialer).
+   Incoming and ongoing calls are never tracked.
 2. An alert is **unacknowledged** until its notification is removed (opened, swiped, cleared) or the
    reminder is acknowledged.
 3. While anything is unacknowledged, an exact Doze-proof alarm fires every 60 s and posts a
@@ -51,6 +56,19 @@ the "Apps that have posted notifications" list shows it.
    `adb shell cmd notification allow_listener com.crewalert.missedalert/com.crewalert.missedalert.MissedAlertListener`
 7. Make sure the MDT app and the SMS app have notifications enabled, otherwise there is
    nothing to repeat.
+
+## Android versions
+Built for Android 13–17 (minSdk 33, targetSdk 35). Android 17 behavior-change pages were reviewed:
+nothing found affecting notification listeners or alarm-clock alarms. The tone is played by the
+system through the notification channel (not by the app), so Android 17's background-audio
+restrictions don't apply. Android 15+ "Notification cooldown" can lower the volume of repeated
+notifications from one app on some builds – check Settings → Notifications → Notification cooldown
+(set to off via Knox "deep settings" if present) and confirm volume during the pilot.
+
+## Why not a "system app"?
+Not needed. Knox Service Plugin Permission Controls grants the same special access
+(Notification access, Alarms & Reminders) to a normally installed app, and the battery allowlist
+covers background survival. Making it a true system/priv-app would require signing into the firmware.
 
 ## Why setAlarmClock()
 Normal "exact" alarms are throttled to roughly one per 9 minutes per app once the phone is in

@@ -68,8 +68,9 @@ class MissedAlertListener : NotificationListenerService() {
         if (n.flags and Notification.FLAG_ONGOING_EVENT != 0) return
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
-        AlertStore.recordSeen(this, sbn.packageName)
-        if (sbn.packageName !in Config.watchedPackages(this)) return
+        AlertStore.recordSeen(this, "${sbn.packageName}  [${n.channelId.orEmpty()}]")
+        val watched = sbn.packageName in Config.watchedPackages(this)
+        if (!watched && !isMissedCall(n, sbn.packageName)) return
         if (AlertStore.isAcked(this, sbn.key, sbn.postTime)) return
 
         val extras = n.extras
@@ -84,5 +85,18 @@ class MissedAlertListener : NotificationListenerService() {
             )
         )
         if (!Scheduler.isPending(this)) Scheduler.scheduleNext(this)
+    }
+
+    /** True for a missed-call notification from a dialer / telecom; false for incoming or ongoing calls. */
+    private fun isMissedCall(n: Notification, pkg: String): Boolean {
+        val fromDialer = pkg in Config.CALL_PACKAGES || n.category == Notification.CATEGORY_CALL
+        if (!fromDialer) return false
+        if (n.fullScreenIntent != null) return false // incoming-call screen
+        val extras = n.extras
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+        return n.channelId.orEmpty().contains("missed", ignoreCase = true) ||
+            title.contains("missed", ignoreCase = true) ||
+            text.contains("missed", ignoreCase = true)
     }
 }

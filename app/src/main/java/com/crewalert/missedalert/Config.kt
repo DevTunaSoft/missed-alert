@@ -17,6 +17,22 @@ object Config {
         "com.android.mms",
     )
 
+    /**
+     * Phone/dialer packages. Notifications from these (or any CATEGORY_CALL notification) are
+     * tracked ONLY if they are missed-call notifications – never incoming/ongoing calls.
+     * "com.android.server.telecom" posts the standard Android missed-call notification
+     * (channel "TelecomMissedCalls"); the others are Samsung / Google / AOSP dialers.
+     */
+    val CALL_PACKAGES = setOf(
+        "com.android.server.telecom",
+        "com.samsung.android.incallui",
+        "com.samsung.android.dialer",
+        "com.samsung.android.app.telephonyui",
+        "com.google.android.dialer",
+        "com.android.dialer",
+        "com.android.phone",
+    )
+
     private fun restrictions(c: Context) =
         (c.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager).applicationRestrictions
 
