@@ -8,7 +8,7 @@ import android.os.SystemClock
 /** A notification failure must never sever the scheduling chain. */
 class ReAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val lateMs = SystemClock.elapsedRealtime() - AlertStore.nextAt(context)
+        val dueAt = AlertStore.nextAt(context)\n        val lateMs = if (dueAt > 0L)\n            (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L
         val items = try { AlertStore.all(context) } catch (e: Exception) {
             EventLog.write(context, "alert_read_failed", "error" to e.javaClass.simpleName)
             emptyList()

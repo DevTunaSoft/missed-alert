@@ -7,7 +7,7 @@ import android.content.Intent
 import android.service.notification.NotificationListenerService
 
 /**
- * After reboot / app update: reset state (old notifications are gone) and make sure the listener binds.
+ * After reboot / app update: preserve pending alerts and make sure the listener binds.
  * On a clock or timezone change: re-arm the alarm, because the alarm-clock alarm is wall-clock based.
  */
 class BootReceiver : BroadcastReceiver() {

@@ -97,7 +97,7 @@ class StatusActivity : Activity() {
             }
             val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: throw IllegalStateException("could not create file")
-            contentResolver.openOutputStream(uri)?.use { it.write(EventLog.export(this, header).toByteArray()) }
+            val output = contentResolver.openOutputStream(uri)\n                ?: throw IllegalStateException("Downloads output stream unavailable")\n            output.use { it.write(EventLog.export(this, header).toByteArray()) }
             EventLog.write(this, "log_exported", "file" to name)
             Toast.makeText(this, "Saved to Downloads/$name", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
