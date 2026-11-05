@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+    <restriction
+        android:key="extra_packages"
+        android:title="@string/r_extra_title"
+        android:description="@string/r_extra_desc"
+        android:restrictionType="string"
+        android:defaultValue="" />
+    <restriction
+        android:key="interval_seconds"
+        android:title="@string/r_interval_title"
+        android:restrictionType="integer"
+        android:defaultValue="60" />
+    <restriction
+        android:key="max_repeats"
+        android:title="@string/r_max_title"
+        android:restrictionType="integer"
+        android:defaultValue="0" />
+</restrictions>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Missed Alert</string>
+    <string name="r_extra_title">Extra packages to watch</string>
+    <string name="r_extra_desc">Comma-separated package names, e.g. the TraumaSoft MDT app. SMS apps are always watched.</string>
+    <string name="r_interval_title">Repeat interval (seconds)</string>
+    <string name="r_max_title">Max repeats (0 = until acknowledged)</string>
+</resources>
