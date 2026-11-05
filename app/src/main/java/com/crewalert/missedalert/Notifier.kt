@@ -65,7 +65,9 @@ object Notifier {
         val ack = PendingIntent.getBroadcast(c, 2, Intent(c, AckReceiver::class.java), flags)
         val open = PendingIntent.getActivity(
             c, 3,
-            Intent(c, AckActivity::class.java).putExtra("pkg", items.last().pkg),
+            Intent(c, AckActivity::class.java)
+                .putExtra("pkg", items.last().pkg)
+                .putExtra("key", items.last().key),
             flags
         )
 
@@ -90,7 +92,7 @@ object Notifier {
             .setWhen(System.currentTimeMillis())
             .setContentIntent(open)           // tap = acknowledge + open source app
             .setDeleteIntent(ack)             // swipe away = acknowledge
-            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE", ack).build())
+            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE ALL", ack).build())
             .build()
         val current = if (repeatNo % 2 == 0) NOTIF_ID_A else NOTIF_ID_B
         val previous = if (repeatNo % 2 == 0) NOTIF_ID_B else NOTIF_ID_A

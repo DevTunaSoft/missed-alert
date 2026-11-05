@@ -28,6 +28,12 @@ jobs:
       - name: Install Android SDK platform
         run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
 
+      - name: Run source regression checks
+        run: python3 tests/source_regression.py
+
+      - name: Run Android lint and unit test tasks
+        run: gradle :app:lintDebug :app:testDebugUnitTest --stacktrace
+
       - name: Prepare release signing key (if configured)
         id: sign
         env:

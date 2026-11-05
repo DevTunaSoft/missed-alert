@@ -8,7 +8,7 @@ import android.os.Bundle
 class AckActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Acker.ackAll(this, "tap_reminder")
+        intent.getStringExtra("key")?.let { Acker.ackOne(this, it, "tap_reminder") }
         val pkg = intent.getStringExtra("pkg")
         val launch = pkg?.let { packageManager.getLaunchIntentForPackage(it) }
             ?: if (pkg != null && pkg in Config.CALL_PACKAGES) {

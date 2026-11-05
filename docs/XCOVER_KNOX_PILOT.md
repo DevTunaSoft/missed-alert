@@ -6,3 +6,5 @@ Configure package `com.crewalert.missedalert` as Knox background allowlisted, ba
 Smoke-test the built APK on an isolated device, under actual kiosk policy. Check log progression: listener_connected → alert_tracked → alarm_scheduled → alarm_fired → reminder_posted, repeating until explicit acknowledgment. If no alert_tracked, check actual source package listed on IT status screen and add to Knox managed extra_packages. If inexact_fallback, 60-second delivery cannot be guaranteed. On Android 15+, test notification cooldown and muted/DND/speaker routing.
 
 Test 5+ reminders each for SMS, MDT and missed call: awake, screen off, Doze, reboot, application upgrade, 24h idle, and simultaneous alerts. Validate expected timestamps, audible sound, acknowledgments, power usage. The 15-minute job is a safety net, **not** a 60-second timing guarantee. Force-stop may require IT recovery. Do not deploy to clinical production without actual device acceptance.
+
+A content tap acknowledges only the tapped latest alert. ACKNOWLEDGE ALL and swipe-dismiss of the combined reminder explicitly acknowledge all; test both behaviors with multiple pending items.

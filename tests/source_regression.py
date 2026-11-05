@@ -21,3 +21,7 @@ assert 'VISIBILITY_PRIVATE' in read('Notifier')
 assert 'reminder_blocked_or_silent' in read('Notifier')
 assert '.commit()' in read('AlertStore')
 print('15 source contracts passed; NOT an Android runtime test.')
+
+assert 'fun ackOne(' in read('Acker')
+assert 'Acker.ackOne(this' in read('AckActivity')
+assert '.putExtra("key", items.last().key)' in read('Notifier')
