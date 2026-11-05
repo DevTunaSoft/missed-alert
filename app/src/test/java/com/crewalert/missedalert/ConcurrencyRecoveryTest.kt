@@ -79,4 +79,71 @@ class ConcurrencyRecoveryTest {
             .getString("items", null))
         assertEquals(12345L, AlertStore.nextAt(context))
     }
+
+    @Test fun concurrentRepeatIncrementsPreserveAllCounts() {
+        val workers = 5
+        val each = 40
+        val start = CountDownLatch(1)
+        val done = CountDownLatch(workers)
+        val error = AtomicReference<Throwable?>()
+        val pool = Executors.newFixedThreadPool(workers)
+        try {
+            repeat(workers) {
+                pool.execute {
+                    try {
+                        start.await()
+                        repeat(each) { AlertStore.incRepeats(context) }
+                    } catch (t: Throwable) {
+                        error.compareAndSet(null, t)
+                    } finally {
+                        done.countDown()
+                    }
+                }
+            }
+            start.countDown()
+            assertTrue("repeat workers timed out", done.await(45, TimeUnit.SECONDS))
+            error.get()?.let { throw AssertionError("concurrent repeats failed", it) }
+            assertEquals(workers * each, AlertStore.repeats(context))
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
+    @Test fun rapidParallelAcknowledgmentsSurviveStorageReload() {
+        val workers = 4
+        val each = 20
+        val start = CountDownLatch(1)
+        val done = CountDownLatch(workers)
+        val error = AtomicReference<Throwable?>()
+        val pool = Executors.newFixedThreadPool(workers)
+        try {
+            repeat(workers) { worker ->
+                pool.execute {
+                    try {
+                        start.await()
+                        repeat(each) { n ->
+                            AlertStore.markAcked(context, listOf(
+                                Item("ack_" + worker + "_" + n, "com.test", "", "", 5000L + n)
+                            ))
+                        }
+                    } catch (t: Throwable) {
+                        error.compareAndSet(null, t)
+                    } finally {
+                        done.countDown()
+                    }
+                }
+            }
+            start.countDown()
+            assertTrue("ack workers timed out", done.await(45, TimeUnit.SECONDS))
+            error.get()?.let { throw AssertionError("concurrent acknowledgments failed", it) }
+            repeat(workers) { worker ->
+                repeat(each) { n ->
+                    assertTrue("ack marker missing", AlertStore.isAcked(
+                        context, "ack_" + worker + "_" + n, 5000L + n))
+                }
+            }
+        } finally {
+            pool.shutdownNow()
+        }
+    }
 }
