@@ -5,16 +5,24 @@ import android.app.Activity
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.PowerManager
+import android.provider.MediaStore
 import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.widget.TextView
 
 /**
@@ -61,6 +69,7 @@ class StatusActivity : Activity() {
             Scheduler.scheduleNext(this)
         }
         btn("Acknowledge all") { Acker.ackAll(this, "status_screen") }
+        btn("Export log (saves to Downloads)") { exportLog() }
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -68,6 +77,30 @@ class StatusActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh()
+    }
+
+    /** Saves the full event log to Downloads (no file picker and no permissions needed, so it works in a kiosk). */
+    private fun exportLog() {
+        val name = "MissedAlert-log-" +
+            SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".txt"
+        try {
+            val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
+            val header = "Missed Alert log export\n" +
+                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n" +
+                "App version: $version\n\n" + info.text
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("could not create file")
+            contentResolver.openOutputStream(uri)?.use { it.write(EventLog.export(this, header).toByteArray()) }
+            EventLog.write(this, "log_exported", "file" to name)
+            Toast.makeText(this, "Saved to Downloads/$name", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Export failed: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun ok(b: Boolean) = if (b) "OK" else "MISSING"

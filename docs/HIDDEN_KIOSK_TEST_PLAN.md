@@ -46,6 +46,10 @@ ids, counts, timings):
 
     adb pull /sdcard/Android/data/com.crewalert.missedalert/files/logs
 
+or, with no computer: open the status screen (IT only) and press **Export log**. It saves
+`MissedAlert-log-<date>.txt` to the phone Downloads folder, with the device model, Android version and
+status at the top.
+
 Events: listener_connected / listener_disconnected, alert_tracked, skipped (with reason), alert_removed
 (Android removal reason code, e.g. 1 = clicked, 2 = swiped, 8 = cancelled by app), alarm_scheduled,
 alarm_fired (`late_ms` = how late versus due - the Doze evidence), reminder_shown

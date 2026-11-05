@@ -51,6 +51,14 @@ object EventLog {
         }
     }
 
+    /** Whole log (previous + current file) with a header, as one text blob for export. */
+    fun export(c: Context, header: String): String = buildString {
+        append(header).append("\n\n")
+        listOf("events.1.log", "events.log").forEach { name ->
+            try { append(File(dir(c), name).readText()) } catch (e: Exception) { /* file may not exist yet */ }
+        }
+    }
+
     fun tail(c: Context, n: Int): List<String> =
         try { File(dir(c), "events.log").readLines().takeLast(n) } catch (e: Exception) { emptyList() }
 }
