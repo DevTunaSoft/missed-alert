@@ -72,4 +72,19 @@ class KnoxBootstrapTest {
         assertEquals(1, AlertStore.count(context))
         assertTrue("initial startup must schedule pending reminders", AlertStore.nextAt(context) > 0L)
     }
+    @Test fun repeatedKnoxLaunchesPreservePendingAlertWithoutButtonPress() {
+        AlertStore.add(context, Item("dispatch", "com.test.dispatch", "", "", 1000L))
+        repeat(5) {
+            val activity = Robolectric.buildActivity(BootstrapActivity::class.java).create().get()
+            assertTrue(activity.isFinishing)
+            assertEquals(1, AlertStore.count(context))
+            assertTrue(AlertStore.nextAt(context) > 0L)
+        }
+    }
+
+    @Test fun emptyInstallAutoLaunchNeedsNoSetupClick() {
+        val activity = Robolectric.buildActivity(BootstrapActivity::class.java).create().get()
+        assertTrue(activity.isFinishing)
+        assertEquals(0, AlertStore.count(context))
+    }
 }

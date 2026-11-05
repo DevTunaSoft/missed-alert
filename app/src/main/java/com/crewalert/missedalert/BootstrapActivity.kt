@@ -3,6 +3,11 @@ package com.crewalert.missedalert
 import android.app.Activity
 import android.content.ComponentName
 import android.app.NotificationManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
+import android.app.AlarmManager
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 
@@ -12,6 +17,16 @@ class BootstrapActivity : Activity() {
         super.onCreate(savedInstanceState)
         try {
             EventLog.write(this, "knox_auto_run_bootstrap")
+            // Launch itself initializes the app; there is no Start button or crew prompt.
+            val postGranted = Build.VERSION.SDK_INT < 33 ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            val batteryAllowed = getSystemService(PowerManager::class.java)
+                .isIgnoringBatteryOptimizations(packageName)
+            val exactAllowed = Build.VERSION.SDK_INT < 31 ||
+                getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+            EventLog.write(this, "bootstrap_preflight",
+                "post_granted" to postGranted, "battery_allowed" to batteryAllowed,
+                "exact_allowed" to exactAllowed)
             Notifier.ensureChannel(this)
             RecoveryJobService.ensureScheduled(this)
             try { Scheduler.ensureScheduled(this) } catch (e: Exception) {
