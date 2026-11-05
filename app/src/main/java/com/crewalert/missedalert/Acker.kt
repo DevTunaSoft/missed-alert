@@ -17,7 +17,8 @@ object Acker {
             Notifier.cancel(c)
             AlertStore.resetRepeats(c)
         } else {
-            Scheduler.ensureScheduled(c)
+            AlertStore.resetRepeats(c)
+            Scheduler.scheduleNext(c)
         }
         EventLog.write(c, "acknowledged_one", "source" to source, "remaining" to left)
     }

@@ -100,6 +100,7 @@ class MissedAlertListener : NotificationListenerService() {
         }
 
         val extras = n.extras
+        val isNewAlert = AlertStore.all(this).none { it.key == sbn.key && it.postTime == sbn.postTime }
         AlertStore.add(
             this,
             Item(
@@ -117,7 +118,10 @@ class MissedAlertListener : NotificationListenerService() {
             "kind" to (if (missedCall) "missed_call" else "watched_app"),
             "pending" to AlertStore.count(this)
         )
-        if (!Scheduler.isPending(this)) Scheduler.scheduleNext(this)
+        if (isNewAlert) {
+            AlertStore.resetRepeats(this)
+            Scheduler.scheduleNext(this)
+        } else if (!Scheduler.isPending(this)) Scheduler.scheduleNext(this)
     }
 
     /** True for a missed-call notification from a dialer / telecom; false for incoming or ongoing calls. */

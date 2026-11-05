@@ -27,7 +27,10 @@ class BootReceiver : BroadcastReceiver() {
         }
         EventLog.write(context, "boot_or_update", "action" to action.substringAfterLast('.'))
         Scheduler.cancel(context)
-        if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
+        if (AlertStore.count(context) > 0) {
+            AlertStore.resetRepeats(context)
+            Scheduler.scheduleNext(context)
+        }
         Notifier.ensureChannel(context)
         try {
             NotificationListenerService.requestRebind(
