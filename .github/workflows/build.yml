@@ -43,6 +43,11 @@ jobs:
       - name: Run Android lint and unit test tasks
         run: gradle :app:lintDebug :app:testDebugUnitTest --stacktrace
 
+      - name: Print JVM test failure details
+        if: failure()
+        run: |
+          find app/build/test-results/testDebugUnitTest -name "*.xml" -type f -print -exec cat {} \; || true
+
       - name: Publish JVM test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
