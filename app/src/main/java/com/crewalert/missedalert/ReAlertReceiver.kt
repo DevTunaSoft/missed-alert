@@ -5,36 +5,38 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 
-/** Fires every interval while anything is unacknowledged. */
+/** A notification failure must never sever the scheduling chain. */
 class ReAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        // How late did the alarm fire versus when it was due? (Doze / battery-saver evidence.)
         val lateMs = SystemClock.elapsedRealtime() - AlertStore.nextAt(context)
-
-        // Drop alerts whose original notification is already gone (read/cleared in the source app).
-        MissedAlertListener.pruneAgainstActive(context)
-
-        val items = AlertStore.all(context)
-        EventLog.write(
-            context, "alarm_fired",
-            "late_ms" to lateMs, "pending" to items.size,
-            "listener_bound" to (MissedAlertListener.instance != null)
-        )
+        val items = try { AlertStore.all(context) } catch (e: Exception) {
+            EventLog.write(context, "alert_read_failed", "error" to e.javaClass.simpleName)
+            emptyList()
+        }
+        EventLog.write(context, "alarm_fired", "late_ms" to lateMs, "pending" to items.size,
+            "listener_bound" to (MissedAlertListener.instance != null))
         if (items.isEmpty()) {
             Scheduler.cancel(context)
             Notifier.cancel(context)
             return
         }
-
-        val n = AlertStore.incRepeats(context)
-        val max = Config.maxRepeats(context)
-        if (max > 0 && n > max) {
-            EventLog.write(context, "gave_up", "max_repeats" to max)
-            Acker.ackAll(context, "max_repeats") // gave up after the configured number of reminders
-            return
+        try {
+            val n = AlertStore.repeats(context) + 1
+            val max = Config.maxRepeats(context)
+            if (max > 0 && n > max) {
+                EventLog.write(context, "repeat_limit_reached", "max_repeats" to max)
+                return
+            }
+            Notifier.show(context, items, n)
+            AlertStore.incRepeats(context)
+        } catch (e: Exception) {
+            EventLog.write(context, "reminder_failed", "error" to e.javaClass.simpleName)
+        } finally {
+            if (AlertStore.count(context) > 0) {
+                val max = Config.maxRepeats(context)
+                if (max <= 0 || AlertStore.repeats(context) < max) Scheduler.scheduleNext(context)
+            }
+            RecoveryJobService.ensureScheduled(context)
         }
-
-        Notifier.show(context, items, n)
-        Scheduler.scheduleNext(context)
     }
 }

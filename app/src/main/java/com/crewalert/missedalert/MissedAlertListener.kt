@@ -19,28 +19,13 @@ class MissedAlertListener : NotificationListenerService() {
         @Volatile
         var instance: MissedAlertListener? = null
 
-        /** Remove tracked alerts whose source notification no longer exists. */
-        fun pruneAgainstActive(c: Context) {
-            val svc = instance ?: return
-            val activeKeys = try {
-                svc.activeNotifications?.map { it.key }?.toSet()
-            } catch (e: Exception) {
-                null
-            } ?: return
-            var pruned = 0
-            AlertStore.all(c).forEach {
-                if (it.key != "test" && it.key !in activeKeys) {
-                    AlertStore.remove(c, it.key)
-                    pruned++
-                }
-            }
-            if (pruned > 0) EventLog.write(c, "pruned", "count" to pruned, "pending" to AlertStore.count(c))
-        }
+
     }
 
     override fun onListenerConnected() {
         instance = this
         Notifier.ensureChannel(this)
+        RecoveryJobService.ensureScheduled(this)
         val active = try { activeNotifications } catch (e: Exception) { null }
         EventLog.write(this, "listener_connected", "active" to active?.size, "pending" to AlertStore.count(this))
         // Pick up anything already sitting in the shade (e.g. after the service was restarted).
@@ -51,19 +36,35 @@ class MissedAlertListener : NotificationListenerService() {
         instance = null
         EventLog.write(this, "listener_disconnected")
         // Ask the system to bind us again right away.
-        requestRebind(ComponentName(this, MissedAlertListener::class.java))
+        try {
+            requestRebind(ComponentName(this, MissedAlertListener::class.java))
+        } catch (e: Exception) {
+            EventLog.write(this, "listener_rebind_failed", "error" to e.javaClass.simpleName)
+        }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = track(sbn, "posted")
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
         if (sbn.packageName == packageName) return
+        val userAction = reason == REASON_CLICK || reason == REASON_CANCEL ||
+            reason == REASON_CANCEL_ALL || reason == REASON_LISTENER_CANCEL ||
+            reason == REASON_LISTENER_CANCEL_ALL
+        if (!userAction) {
+            if (AlertStore.all(this).any { it.key == sbn.key }) {
+                EventLog.write(this, "source_removed_retained", "pkg" to sbn.packageName,
+                    "reason" to reason)
+            }
+            return
+        }
         if (AlertStore.remove(this, sbn.key)) {
             val left = AlertStore.count(this)
-            EventLog.write(this, "alert_removed", "pkg" to sbn.packageName, "reason" to reason, "pending" to left)
+            EventLog.write(this, "alert_removed", "pkg" to sbn.packageName,
+                "reason" to reason, "pending" to left)
             if (left == 0) {
                 Scheduler.cancel(this)
                 Notifier.cancel(this)
+                AlertStore.resetRepeats(this)
             }
         }
     }

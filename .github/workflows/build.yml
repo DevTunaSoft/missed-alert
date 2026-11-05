@@ -74,3 +74,18 @@ jobs:
           fi
           gh release delete latest --cleanup-tag -y || true
           gh release create latest missed-alert.apk --title "Latest build" --notes "$NOTE" --target "${{ github.sha }}"
+
+      - name: Publish prerelease test APK for pilot branch
+        if: github.ref == 'refs/heads/pilot/xcover-pro-reminder-recovery'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.sign.outputs.signed }}
+        run: |
+          if [ "$SIGNED" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk missed-alert-xcover-pilot.apk
+            echo "Signed using repository release keystore" > pilot-notes.txt
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk missed-alert-xcover-pilot.apk
+            echo "DEBUG-signed; pilot testing only" > pilot-notes.txt
+          fi
+          gh release create "pilot-${{ github.run_id }}" missed-alert-xcover-pilot.apk --title "XCover Pro reminder pilot ${{ github.run_number }}" --notes-file pilot-notes.txt --target "${{ github.sha }}" --prerelease

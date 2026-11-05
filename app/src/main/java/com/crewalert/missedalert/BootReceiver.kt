@@ -13,6 +13,12 @@ import android.service.notification.NotificationListenerService
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action.orEmpty()
+        RecoveryJobService.ensureScheduled(context)
+        if (action == "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED") {
+            EventLog.write(context, "exact_permission_changed")
+            if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
+            return
+        }
         if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
             EventLog.write(context, "clock_changed", "action" to action.substringAfterLast('.'),
                 "pending" to AlertStore.count(context))
@@ -20,8 +26,8 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
         EventLog.write(context, "boot_or_update", "action" to action.substringAfterLast('.'))
-        AlertStore.clear(context)
         Scheduler.cancel(context)
+        if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
         Notifier.ensureChannel(context)
         try {
             NotificationListenerService.requestRebind(
