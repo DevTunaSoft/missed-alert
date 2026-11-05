@@ -60,7 +60,7 @@ class StatusActivity : Activity() {
             )
             Scheduler.scheduleNext(this)
         }
-        btn("Acknowledge all") { Acker.ackAll(this) }
+        btn("Acknowledge all") { Acker.ackAll(this, "status_screen") }
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -88,6 +88,7 @@ class StatusActivity : Activity() {
             appendLine("Repeat every ${Config.intervalMs(this@StatusActivity) / 1000}s" +
                     (Config.maxRepeats(this@StatusActivity).let { if (it > 0) ", max $it" else ", until acknowledged" }))
             appendLine("Pending alerts: ${AlertStore.count(this@StatusActivity)}")
+            appendLine("Log: adb pull /sdcard/Android/data/${this@StatusActivity.packageName}/files/logs")
             appendLine()
             appendLine("Watching:")
             Config.watchedPackages(this@StatusActivity).sorted().forEach { appendLine("  $it") }
@@ -95,6 +96,9 @@ class StatusActivity : Activity() {
             appendLine("Apps that have posted notifications")
             appendLine("(use to find the MDT app's package name):")
             AlertStore.seen(this@StatusActivity).forEach { appendLine("  $it") }
+            appendLine()
+            appendLine("Recent events:")
+            EventLog.tail(this@StatusActivity, 25).forEach { appendLine(it) }
         }
     }
 }

@@ -46,6 +46,11 @@ object Notifier {
         ensureChannel(c)
         val nm = c.getSystemService(NotificationManager::class.java)
         val pm = c.packageManager
+        EventLog.write(
+            c, "reminder_shown", "n" to repeatNo, "items" to items.size,
+            "notifications_enabled" to nm.areNotificationsEnabled(),
+            "channel_importance" to nm.getNotificationChannel(CHANNEL)?.importance
+        )
         fun label(pkg: String) = try {
             pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
         } catch (e: Exception) {

@@ -21,7 +21,8 @@ object Scheduler {
         val am = c.getSystemService(AlarmManager::class.java)
         val interval = Config.intervalMs(c)
         val p = pi(c, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
-        if (am.canScheduleExactAlarms()) {
+        val exact = am.canScheduleExactAlarms()
+        if (exact) {
             // setAlarmClock() is the one alarm type that keeps firing on time in deep Doze.
             // setExactAndAllowWhileIdle() is throttled to ~1 per 9 minutes per app while idle,
             // which would turn "every 60 s" into "every 9 min" on a phone sitting on a desk.
@@ -38,13 +39,16 @@ object Scheduler {
             )
         }
         AlertStore.setNextAt(c, SystemClock.elapsedRealtime() + interval)
+        EventLog.write(c, "alarm_scheduled", "in_ms" to interval, "mode" to (if (exact) "alarm_clock" else "inexact_fallback"))
     }
 
     fun cancel(c: Context) {
+        val was = AlertStore.nextAt(c) > 0L
         pi(c, PendingIntent.FLAG_NO_CREATE)?.let {
             c.getSystemService(AlarmManager::class.java).cancel(it)
             it.cancel()
         }
         AlertStore.setNextAt(c, 0L)
+        if (was) EventLog.write(c, "alarm_cancelled")
     }
 }

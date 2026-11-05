@@ -41,5 +41,13 @@ or `adb logcat -s` output), and the output of:
     adb shell dumpsys alarm | grep -i -B2 -A6 missedalert
     adb shell dumpsys package com.crewalert.missedalert | grep -i -E "stopped|firstInstall"
 
-Known limitation: the app does not yet keep its own event log (Volume Guard does). For the pilot, the
-`dumpsys` output above and screen recordings are the evidence. An event log can be added if needed.
+The app keeps its own rolling event log (no message text, titles, names or numbers - only packages, channel
+ids, counts, timings):
+
+    adb pull /sdcard/Android/data/com.crewalert.missedalert/files/logs
+
+Events: listener_connected / listener_disconnected, alert_tracked, skipped (with reason), alert_removed
+(Android removal reason code, e.g. 1 = clicked, 2 = swiped, 8 = cancelled by app), alarm_scheduled,
+alarm_fired (`late_ms` = how late versus due - the Doze evidence), reminder_shown
+(`notifications_enabled`, `channel_importance`: 4 = high, anything lower will be quieter),
+acknowledged (source), pruned, boot_or_update, clock_changed.
