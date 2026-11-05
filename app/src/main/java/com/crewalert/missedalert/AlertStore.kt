@@ -20,7 +20,20 @@ object AlertStore {
         val raw = p(c).getString("items", "{}") ?: "{}"
         return try { JSONObject(raw) } catch (e: Exception) {
             EventLog.write(c, "items_corrupt", "error" to e.javaClass.simpleName)
-            throw IllegalStateException("Pending alert storage corrupted", e)
+            // Restore only from a previously committed, parseable snapshot.
+            // Preserve the damaged bytes for IT diagnosis and do not silently clear alerts.
+            val backup = p(c).getString("items_backup", null)
+            val recovered = try { backup?.let { JSONObject(it) } } catch (_: Exception) { null }
+            if (recovered != null && backup != null) {
+                val saved = p(c).edit().putString("items_corrupt_snapshot", raw)
+                    .putString("items", backup).commit()
+                if (saved) {
+                    EventLog.write(c, "items_restored_from_backup", "count" to recovered.length())
+                    return recovered
+                }
+                EventLog.write(c, "items_restore_commit_failed")
+            }
+            throw IllegalStateException("Pending alert storage corrupted without usable backup", e)
         }
     }
 
@@ -59,7 +72,7 @@ object AlertStore {
             item.key,
             JSONObject().put("pkg", item.pkg).put("t", item.postTime)
         )
-        p(c).edit().putString("items", o.toString()).commit()
+        p(c).edit().putString("items", o.toString()).putString("items_backup", o.toString()).commit()
     }
 
     /** Ignore stale removal callbacks for a reused notification key.
@@ -78,6 +91,7 @@ object AlertStore {
         }
         items.remove(key)
         if (!p(c).edit().putString("items", items.toString())
+                .putString("items_backup", items.toString())
                 .putString("acked", trimmed.toString()).commit()) {
             EventLog.write(c, "ack_persist_failed")
             return false
@@ -90,7 +104,7 @@ object AlertStore {
         val o = objectItems(c)
         val had = o.has(key)
         o.remove(key)
-        p(c).edit().putString("items", o.toString()).commit()
+        p(c).edit().putString("items", o.toString()).putString("items_backup", o.toString()).commit()
         return had
     }
 
@@ -115,6 +129,7 @@ object AlertStore {
             trimmed.put(markers.get(i))
         }
         if (!p(c).edit().putString("items", "{}")
+                .putString("items_backup", "{}")
                 .putString("acked", trimmed.toString())
                 .putInt("repeats", 0).commit()) {
             throw IllegalStateException("Unable to persist bulk acknowledgment")
@@ -124,7 +139,7 @@ object AlertStore {
 
     @Synchronized
     fun clear(c: Context) {
-        p(c).edit().putString("items", "{}").putInt("repeats", 0).commit()
+        p(c).edit().putString("items", "{}").putString("items_backup", "{}").putInt("repeats", 0).commit()
     }
 
     fun count(c: Context) = all(c).size
