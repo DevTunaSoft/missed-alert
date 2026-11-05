@@ -16,9 +16,25 @@ data class Item(
 object AlertStore {
     private fun p(c: Context) = c.getSharedPreferences("alerts", Context.MODE_PRIVATE)
 
+    private fun objectItems(c: Context): JSONObject {
+        val raw = p(c).getString("items", "{}") ?: "{}"
+        return try { JSONObject(raw) } catch (e: Exception) {
+            EventLog.write(c, "items_corrupt", "error" to e.javaClass.simpleName)
+            throw IllegalStateException("Pending alert storage corrupted", e)
+        }
+    }
+
+    private fun ackArray(c: Context): JSONArray {
+        val raw = p(c).getString("acked", "[]") ?: "[]"
+        return try { JSONArray(raw) } catch (e: Exception) {
+            EventLog.write(c, "ack_markers_corrupt", "error" to e.javaClass.simpleName)
+            JSONArray()
+        }
+    }
+
     @Synchronized
     fun all(c: Context): List<Item> {
-        val o = JSONObject(p(c).getString("items", "{}") ?: "{}")
+        val o = objectItems(c)
         return o.keys().asSequence().map { k ->
             val j = o.getJSONObject(k)
             Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"))
@@ -27,7 +43,7 @@ object AlertStore {
 
     @Synchronized
     fun add(c: Context, item: Item) {
-        val o = JSONObject(p(c).getString("items", "{}") ?: "{}")
+        val o = objectItems(c)
         o.put(
             item.key,
             JSONObject().put("pkg", item.pkg).put("t", item.postTime)
@@ -37,7 +53,7 @@ object AlertStore {
 
     @Synchronized
     fun remove(c: Context, key: String): Boolean {
-        val o = JSONObject(p(c).getString("items", "{}") ?: "{}")
+        val o = objectItems(c)
         val had = o.has(key)
         o.remove(key)
         p(c).edit().putString("items", o.toString()).commit()
@@ -57,7 +73,7 @@ object AlertStore {
 
     @Synchronized
     fun markAcked(c: Context, items: List<Item>) {
-        val arr = JSONArray(p(c).getString("acked", "[]") ?: "[]")
+        val arr = ackArray(c)
         items.forEach { arr.put("${it.key}|${it.postTime}") }
         val trimmed = JSONArray()
         val start = (arr.length() - 200).coerceAtLeast(0)
@@ -67,7 +83,7 @@ object AlertStore {
 
     @Synchronized
     fun isAcked(c: Context, key: String, postTime: Long): Boolean {
-        val arr = JSONArray(p(c).getString("acked", "[]") ?: "[]")
+        val arr = ackArray(c)
         val needle = "$key|$postTime"
         for (i in 0 until arr.length()) if (arr.getString(i) == needle) return true
         return false
@@ -75,6 +91,7 @@ object AlertStore {
 
     // --- repeat counter ---
     fun repeats(c: Context) = p(c).getInt("repeats", 0)
+    @Synchronized
     fun incRepeats(c: Context): Int {
         val n = repeats(c) + 1
         p(c).edit().putInt("repeats", n).commit()
@@ -88,9 +105,9 @@ object AlertStore {
     // --- discovery: which packages have posted notifications (helps find the MDT package name) ---
     @Synchronized
     fun recordSeen(c: Context, pkg: String) {
-        val set = p(c).getStringSet("seen", emptySet())!!.toMutableSet()
+        val set = (p(c).getStringSet("seen", emptySet()) ?: emptySet()).toMutableSet()
         if (set.add(pkg)) p(c).edit().putStringSet("seen", set).commit()
     }
 
-    fun seen(c: Context): List<String> = p(c).getStringSet("seen", emptySet())!!.sorted()
+    fun seen(c: Context): List<String> = (p(c).getStringSet("seen", emptySet()) ?: emptySet()).sorted()
 }

@@ -37,6 +37,9 @@ jobs:
       - name: Run randomized stress and retention model checks
         run: python3 tests/fuzz_stress_model.py
 
+      - name: Run persistence hardening regression checks
+        run: python3 tests/persistence_regression.py
+
       - name: Run Android lint and unit test tasks
         run: gradle :app:lintDebug :app:testDebugUnitTest --stacktrace
 
