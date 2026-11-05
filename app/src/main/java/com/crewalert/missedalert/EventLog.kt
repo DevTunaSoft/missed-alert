@@ -5,30 +5,51 @@ import android.os.SystemClock
 import android.util.Log
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 /**
- * Small rolling event log for IT / pilot evidence.
- * NEVER records message text, titles, names or phone numbers - only package names, channel ids,
- * counts, timings and reason codes.
- *
- * Pull it with:  adb pull /sdcard/Android/data/com.crewalert.missedalert/files/logs
- * (events.log = current, events.1.log = previous; each rolls at ~256 KB)
+ * Seven complete days of diagnostic events plus the current day.
+ * Daily files avoid the former 256 KB rolling-log data loss.
+ * No message bodies, titles, contact names or phone numbers are logged.
+ * Files live in app-specific storage and are deleted only after the retention window.
  */
 object EventLog {
     private const val TAG = "MissedAlert"
-    private const val MAX_BYTES = 256 * 1024L
+    private const val PREFIX = "events-"
+    private const val SUFFIX = ".log"
+    private const val RETAIN_DAYS = 8
 
     private fun stamp(): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
+
+    private fun dateKey(date: Date = Date()): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
 
     private fun dir(c: Context): File {
         val base = c.getExternalFilesDir(null) ?: c.filesDir
         return File(base, "logs").also { it.mkdirs() }
     }
 
-    private fun clean(v: Any?): String = (v?.toString() ?: "null").replace(Regex("\\s+"), "_").take(80)
+    private fun files(c: Context): List<File> =
+        dir(c).listFiles()?.filter {
+            it.isFile && it.name.startsWith(PREFIX) && it.name.endsWith(SUFFIX) &&
+                Regex("""events-\d{4}-\d{2}-\d{2}\.log""").matches(it.name)
+        }?.sortedBy { it.name } ?: emptyList()
+
+    private fun prune(c: Context) {
+        val keep = mutableSetOf<String>()
+        val cal = Calendar.getInstance()
+        repeat(RETAIN_DAYS) {
+            keep.add("$PREFIX${dateKey(cal.time)}$SUFFIX")
+            cal.add(Calendar.DAY_OF_YEAR, -1)
+        }
+        files(c).filter { it.name !in keep }.forEach { it.delete() }
+    }
+
+    private fun clean(v: Any?): String =
+        (v?.toString() ?: "null").replace(Regex("""\s+"""), "_").take(80)
 
     @Synchronized
     fun write(c: Context, event: String, vararg fields: Pair<String, Any?>) {
@@ -39,26 +60,35 @@ object EventLog {
         Log.i(TAG, line)
         try {
             val d = dir(c)
-            val f = File(d, "events.log")
-            if (f.length() > MAX_BYTES) {
-                val old = File(d, "events.1.log")
-                old.delete()
-                f.renameTo(old)
-            }
-            File(d, "events.log").appendText(line + "\n")
-        } catch (e: Exception) {
-            // logging must never break alerting
+            File(d, "$PREFIX${dateKey()}$SUFFIX").appendText(line + "\n")
+            prune(c)
+        } catch (_: Exception) {
+            // A full or inaccessible disk must never interrupt alert handling.
         }
     }
 
-    /** Whole log (previous + current file) with a header, as one text blob for export. */
+    /** Export all retained daily files, oldest first, including current diagnostics. */
+    @Synchronized
     fun export(c: Context, header: String): String = buildString {
         append(header).append("\n\n")
-        listOf("events.1.log", "events.log").forEach { name ->
-            try { append(File(dir(c), name).readText()) } catch (e: Exception) { /* file may not exist yet */ }
+        for (file in files(c)) {
+            append("=== ").append(file.name).append(" ===\n")
+            try { append(file.readText()) } catch (_: Exception) { append("[unreadable]\n") }
         }
     }
 
-    fun tail(c: Context, n: Int): List<String> =
-        try { File(dir(c), "events.log").readLines().takeLast(n) } catch (e: Exception) { emptyList() }
+    /** Recent events across day boundaries, newest events last. */
+    @Synchronized
+    fun tail(c: Context, n: Int): List<String> {
+        val out = ArrayDeque<String>()
+        for (file in files(c)) {
+            try {
+                file.forEachLine { line ->
+                    out.addLast(line)
+                    if (out.size > n) out.removeFirst()
+                }
+            } catch (_: Exception) { }
+        }
+        return out.toList()
+    }
 }

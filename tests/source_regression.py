@@ -25,3 +25,4 @@ print('15 source contracts passed; NOT an Android runtime test.')
 assert 'fun ackOne(' in read('Acker')
 assert 'Acker.ackOne(this' in read('AckActivity')
 assert '.putExtra("key", items.last().key)' in read('Notifier')
+\nassert 'RETAIN_DAYS = 8' in read('EventLog')\nassert 'for (file in files(c))' in read('EventLog')\nassert 'prune(c)' in read('EventLog')\n
