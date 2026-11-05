@@ -57,8 +57,32 @@ the "Apps that have posted notifications" list shows it.
 7. Make sure the MDT app and the SMS app have notifications enabled, otherwise there is
    nothing to repeat.
 
+## Knox Manage kiosk (lessons from MMT Volume Guard's pilot notes)
+Your phones run a Knox Manage kiosk, which can block things a normal Android install allows:
+1. Add `com.crewalert.missedalert` as a **background app** in the kiosk's *Allowlisted Apps Settings /
+   Apps outside kiosk* – not on the crews' visible app list.
+2. Assign the app with **Auto-install** and **Automatically run app: after installation and every
+   app update**, and send **Run app** once. A never-launched app gets no boot events.
+3. Add it to the **Force Stop blocklist** and the **battery optimization allowlist**. A force-stopped
+   app loses its alarms and listener until someone opens it.
+4. **Kiosk notification policy:** Samsung documents that kiosks with Notification Bar = *Disallow* play
+   no notification sounds (KBA-1686). The reminder is a notification, so it is silent in that case.
+   The notification policy must allow this app's (and the SMS/MDT apps') notifications.
+5. Crews acknowledge by opening the MDT / text / phone app, which clears its own notification; the
+   reminder then stops by itself. If the MDT app does NOT clear its notification when handled, the
+   reminder keeps repeating – check this in the pilot.
+6. Also test Samsung **Separate app sound**, **Mute all sounds**, Do Not Disturb and a Bluetooth/wired
+   route: volume at max does not guarantee the speaker is used. Can't be verified from a build.
+
+## Use together with MMT Volume Guard
+Volume Guard keeps the notification and ring streams at max and forces the ringer to Normal; Missed
+Alert supplies the repeating. They don't conflict (different packages, no shared state). Keep
+`inc_notification`, `inc_ring` = true and `pct_*` = 100 in Volume Guard's managed config. Gap neither
+app closes: Do Not Disturb (needs policy access Knox Permission Controls doesn't list) – confirm
+crews can't enable it in the kiosk.
+
 ## Android versions
-Built for Android 13–17 (minSdk 33, targetSdk 35). Android 17 behavior-change pages were reviewed:
+Built for Android 13–17 (minSdk 33, targetSdk 36). Android 17 behavior-change pages were reviewed:
 nothing found affecting notification listeners or alarm-clock alarms. The tone is played by the
 system through the notification channel (not by the app), so Android 17's background-audio
 restrictions don't apply. Android 15+ "Notification cooldown" can lower the volume of repeated

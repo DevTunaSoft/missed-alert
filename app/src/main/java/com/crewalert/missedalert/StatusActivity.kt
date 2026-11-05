@@ -30,6 +30,7 @@ class StatusActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
+            fitsSystemWindows = true
         }
         info = TextView(this).apply { textSize = 15f }
         root.addView(info, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
