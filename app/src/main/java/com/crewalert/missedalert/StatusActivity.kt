@@ -87,13 +87,9 @@ class StatusActivity : Activity() {
             SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".txt"
         try {
             val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
-            val header = "Missed Alert log export
-" +
-                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
-" +
-                "App version: $version
-
-" + info.text
+            val header = "Missed Alert log export\n" +
+                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n" +
+                "App version: $version\n\n" + info.text
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
                 put(MediaStore.Downloads.MIME_TYPE, "text/plain")
