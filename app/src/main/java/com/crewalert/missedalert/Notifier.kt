@@ -92,7 +92,6 @@ object Notifier {
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
             .setContentIntent(open)           // tap = acknowledge + open source app
-            .setDeleteIntent(ack)             // swipe away = acknowledge
             .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE ALL", ack).build())
             .build()
         val current = if (repeatNo % 2 == 0) NOTIF_ID_A else NOTIF_ID_B
