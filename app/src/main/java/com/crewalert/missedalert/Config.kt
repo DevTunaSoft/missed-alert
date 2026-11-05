@@ -2,6 +2,7 @@ package com.crewalert.missedalert
 
 import android.content.Context
 import android.content.RestrictionsManager
+import android.os.Bundle
 
 /**
  * Settings come from the MDM (Knox Manage / Knox Service Plugin managed app config).
@@ -33,8 +34,9 @@ object Config {
         "com.android.phone",
     )
 
-    private fun restrictions(c: Context) =
-        (c.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager).applicationRestrictions
+    private fun restrictions(c: Context): Bundle =
+        (c.getSystemService(Context.RESTRICTIONS_SERVICE) as? RestrictionsManager)
+            ?.applicationRestrictions ?: Bundle.EMPTY
 
     /** SMS apps + any extra packages pushed by the MDM (e.g. the TraumaSoft MDT app). */
     fun watchedPackages(c: Context): Set<String> {
