@@ -62,6 +62,29 @@ object AlertStore {
         p(c).edit().putString("items", o.toString()).commit()
     }
 
+    /** Ignore stale removal callbacks for a reused notification key.
+     * Ack marker and pending queue are committed in one preferences transaction.
+     */
+    @Synchronized
+    fun acknowledgeIfMatches(c: Context, key: String, postTime: Long): Boolean {
+        val items = objectItems(c)
+        val entry = items.optJSONObject(key) ?: return false
+        if (entry.optLong("t") != postTime) return false
+        val acked = ackArray(c)
+        acked.put("$key|$postTime")
+        val trimmed = JSONArray()
+        for (i in (acked.length() - 200).coerceAtLeast(0) until acked.length()) {
+            trimmed.put(acked.get(i))
+        }
+        items.remove(key)
+        if (!p(c).edit().putString("items", items.toString())
+                .putString("acked", trimmed.toString()).commit()) {
+            EventLog.write(c, "ack_persist_failed")
+            return false
+        }
+        return true
+    }
+
     @Synchronized
     fun remove(c: Context, key: String): Boolean {
         val o = objectItems(c)

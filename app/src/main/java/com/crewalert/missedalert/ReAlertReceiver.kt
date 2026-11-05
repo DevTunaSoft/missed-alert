@@ -8,6 +8,7 @@ import android.os.SystemClock
 /** A notification failure must never sever the scheduling chain. */
 class ReAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        synchronized(AlertStore) {
         val dueAt = AlertStore.nextAt(context)
         val lateMs = if (dueAt > 0L)
             (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L
@@ -41,6 +42,7 @@ class ReAlertReceiver : BroadcastReceiver() {
                 if (max <= 0 || AlertStore.repeats(context) < max) Scheduler.scheduleNext(context)
             }
             RecoveryJobService.ensureScheduled(context)
+        }
         }
     }
 }

@@ -61,10 +61,8 @@ class MissedAlertListener : NotificationListenerService() {
             }
             return
         }
-        // Remember user-acknowledged keys so reconnect does not recreate dismissed alerts.
-        val acknowledged = AlertStore.all(this).firstOrNull { it.key == sbn.key }
-        if (acknowledged != null) AlertStore.markAcked(this, listOf(acknowledged))
-        if (AlertStore.remove(this, sbn.key)) {
+        // A late removal for an older notification generation must not clear its replacement.
+        if (AlertStore.acknowledgeIfMatches(this, sbn.key, sbn.postTime)) {
             val left = AlertStore.count(this)
             EventLog.write(this, "alert_removed", "pkg" to sbn.packageName,
                 "reason" to reason, "pending" to left)
@@ -77,6 +75,7 @@ class MissedAlertListener : NotificationListenerService() {
     }
 
     private fun track(sbn: StatusBarNotification, source: String) {
+        synchronized(AlertStore) {
         val pkg = sbn.packageName
         if (pkg == packageName) return
         val n = sbn.notification ?: return
@@ -129,6 +128,7 @@ class MissedAlertListener : NotificationListenerService() {
             AlertStore.resetRepeats(this)
             Scheduler.scheduleNext(this)
         } else if (!Scheduler.isPending(this)) Scheduler.scheduleNext(this)
+        }
     }
 
     /** True for a missed-call notification from a dialer / telecom; false for incoming or ongoing calls. */
