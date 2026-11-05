@@ -16,6 +16,20 @@ data class Item(
 object AlertStore {
     private fun p(c: Context) = c.getSharedPreferences("alerts", Context.MODE_PRIVATE)
 
+    /** Backups must be more than parseable JSON: reject missing or malformed entries.
+     * Otherwise recovery could silently convert real pending alerts into an empty queue.
+     */
+    private fun validBackup(o: JSONObject): Boolean {
+        val keys = o.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val entry = o.optJSONObject(key) ?: return false
+            if (!entry.has("pkg") || entry.optString("pkg").isBlank() ||
+                !entry.has("t") || entry.optLong("t") <= 0L) return false
+        }
+        return true
+    }
+
     private fun objectItems(c: Context): JSONObject {
         val raw = p(c).getString("items", "{}") ?: "{}"
         return try { JSONObject(raw) } catch (e: Exception) {
@@ -24,7 +38,7 @@ object AlertStore {
             // Preserve the damaged bytes for IT diagnosis and do not silently clear alerts.
             val backup = p(c).getString("items_backup", null)
             val recovered = try { backup?.let { JSONObject(it) } } catch (_: Exception) { null }
-            if (recovered != null && backup != null) {
+            if (recovered != null && backup != null && validBackup(recovered)) {
                 val saved = p(c).edit().putString("items_corrupt_snapshot", raw)
                     .putString("items", backup).commit()
                 if (saved) {
