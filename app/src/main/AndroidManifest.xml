@@ -24,15 +24,23 @@
             android:name="android.content.APP_RESTRICTIONS"
             android:resource="@xml/app_restrictions" />
 
-        <!-- Status / setup screen. Nobody has to open this in normal use. -->
+        <!-- Knox auto-run starts this invisible first-run entry point without crew UI. -->
         <activity
-            android:name=".StatusActivity"
-            android:exported="true">
+            android:name=".BootstrapActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- IT-only diagnostics: not offered as a crew launcher. -->
+        <activity
+            android:name=".StatusActivity"
+            android:exported="true" />
 
         <!-- Invisible trampoline: tapping the reminder acknowledges, then opens the source app -->
         <activity

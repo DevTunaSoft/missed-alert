@@ -1,16 +1,23 @@
-# Unattended Knox deployment and crew-free acceptance
+# Unattended Samsung Knox deployment (zero crew interaction)
 
-IT must provision and authorize everything before handing a device to crews. No app status screen or permission prompt should be crew-facing.
+App package: `com.crewalert.missedalert`. Knox auto-run launcher: `com.crewalert.missedalert/.BootstrapActivity`. The bootstrap activity has no visible UI, initializes diagnostics, notification channel, watchdog and pending-alarm recovery, then finishes. `StatusActivity` is reserved for IT diagnosis and is not part of the crew launcher.
 
-1. Assign and silently install APK through Knox Manage; add it to kiosk Allowlisted Apps Settings as a hidden background app, not the crew launcher.
-2. IT triggers Knox Manage run-app command to lift initial stopped state. A fresh installation cannot safely rely on BOOT_COMPLETED alone.
-3. IT confirms notification listener special access for com.crewalert.missedalert/.MissedAlertListener. POST_NOTIFICATIONS is a different permission; it must be granted on Android 13+. The app cannot self-grant special notification access.
-4. Confirm channel sound and importance, notification volume and DND, battery restrictions, exact alarm permission, and actual MDT/SMS package names.
-5. On spare phones test boot, app update, listener disconnection/reconnection, process kill (not force-stop), screen-off 15+ minutes, Doze, and overnight listening without touching app.
-6. Record physical audible results, timestamps, alarm delay, device model/Android/One UI/Knox policy, and logs. No simulated CI run proves real audio.
-7. Do not mistake app force-stop for ordinary process death. Android may block receivers and cancel pending intents until the stopped state is lifted.
+## Mandatory IT configuration before device handoff
 
-References:
-https://docs.samsungknox.com/admin/knox-manage/kbas/kba-801-run-a-background-app-in-kiosk-mode/
-https://developer.android.com/reference/android/service/notification/NotificationListenerService
-https://developer.android.com/about/versions/15/behavior-changes-all
+1. **Install and automatically run:** assign the APK through Knox Manage. Under **Automatically run app**, select **After installation and every app update** (preferred), or **After installation** plus a managed Run app command after updates. On applicable Knox consoles this is also called Auto-run after Install. Android may keep newly installed apps in the stopped state until their first launch; without this step, boot broadcasts cannot be trusted to activate the app. Verify one `knox_auto_run_bootstrap` event.
+2. **Battery optimization allowlist:** in Knox Service Plugin > Application management policies, add **com.crewalert.missedalert** to the **Battery optimization allowlist**. Confirm the exemption is in effect on each target OS/build; do not assume app permissions grant it.
+3. **Force Stop Blocklist:** add **com.crewalert.missedalert** to **Force Stop Blocklist** to prevent crew/system policies from stopping its process where Knox supports the policy. Verify on real managed devices; it is not a guarantee against all firmware failures.
+4. Keep the app allowed to execute in kiosk mode, even when the launcher icon is hidden. **Do not use Hide apps / Disable app / App execution blocklist** to hide the application: those settings can remove or disable its functionality. The default launcher must remain `BootstrapActivity`.
+5. IT must arrange notification-listener access for `com.crewalert.missedalert/.MissedAlertListener` (special access), `POST_NOTIFICATIONS` (Android 13+), audible reminder channel, desired notification volume and DND, and exact-alarm permission when available. Knox cannot necessarily silently grant every special access permission on every model/Android variant: IT must resolve any one-time action before handing out the device.
+6. Verify watched source packages and managed configuration (Traumasoft MDT, Google Messages, phone missed calls). Confirm a test alert fires, repeats, and is audible while screen is off, and stops after proper acknowledgment. Crew members never need to launch or configure Missed Alert.
+7. After update, reboot, listener reconnection, and Doze testing, confirm logs, actual audible result, and no setup prompts. Keep the 8-day diagnostic log export accessible to IT.
+
+## Required pilot evidence
+
+Record device model, Android version, One UI, Knox firmware/policy version, APK SHA/signature, permission grants, launch event, boot/update transitions, reminder timings, observed audio, and final acknowledgment. Android can defer inexact alarms in Doze; 60-second delivery cannot be assumed under every configuration. Do not deploy fleet-wide until the actual models and policy combinations pass.
+
+## Knox documentation
+
+- https://docs.samsungknox.com/admin/knox-manage/new-console/manage-apps/assign-apps/
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/policies.html
+- https://docs.samsungknox.com/admin/knox-manage/new-console/manage-devices/send-device-commands/
