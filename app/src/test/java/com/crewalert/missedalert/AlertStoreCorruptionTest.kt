@@ -64,10 +64,10 @@ class AlertStoreCorruptionTest {
         val r = Random(1729)
         repeat(400) { round ->
             val obj = JSONObject()
-            val good = "good_\$round"
+            val good = "good_$round"
             obj.put(good, JSONObject().put("pkg", "com.test").put("t", 1000L + round))
             repeat(r.nextInt(1, 20)) { i ->
-                val bad = "bad_\$i"
+                val bad = "bad_$i"
                 when (r.nextInt(5)) {
                     0 -> obj.put(bad, 42)
                     1 -> obj.put(bad, JSONObject().put("pkg", "com.test"))
@@ -78,7 +78,7 @@ class AlertStoreCorruptionTest {
             }
             raw(obj.toString())
             val result = AlertStore.all(context)
-            assertEquals("round \$round", 1, result.size)
+            assertEquals("round $round", 1, result.size)
             assertEquals(good, result.single().key)
         }
     }
