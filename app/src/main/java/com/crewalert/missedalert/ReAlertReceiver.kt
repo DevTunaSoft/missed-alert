@@ -13,7 +13,9 @@ class ReAlertReceiver : BroadcastReceiver() {
             (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L
         val items = try { AlertStore.all(context) } catch (e: Exception) {
             EventLog.write(context, "alert_read_failed", "error" to e.javaClass.simpleName)
-            emptyList()
+            // Unreadable storage is not an empty queue. Preserve state for recovery.
+            RecoveryJobService.ensureScheduled(context)
+            return
         }
         EventLog.write(context, "alarm_fired", "late_ms" to lateMs, "pending" to items.size,
             "listener_bound" to (MissedAlertListener.instance != null))
