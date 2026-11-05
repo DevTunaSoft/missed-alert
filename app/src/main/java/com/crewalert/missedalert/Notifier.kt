@@ -10,8 +10,9 @@ import android.media.AudioAttributes
 import android.provider.Settings
 
 object Notifier {
-    private const val CHANNEL = "realert_v1"
-    private const val NOTIF_ID = 4242
+    private const val CHANNEL = "realert_v2"
+    private const val NOTIF_ID_A = 4242
+    private const val NOTIF_ID_B = 4243
 
     /**
      * High-importance channel that plays the device's DEFAULT notification tone
@@ -32,13 +33,16 @@ object Notifier {
             )
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 400, 200, 400)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         nm.createNotificationChannel(ch)
     }
 
     fun cancel(c: Context) {
-        c.getSystemService(NotificationManager::class.java).cancel(NOTIF_ID)
+        c.getSystemService(NotificationManager::class.java).apply {
+            cancel(NOTIF_ID_A)
+            cancel(NOTIF_ID_B)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -61,13 +65,15 @@ object Notifier {
         val ack = PendingIntent.getBroadcast(c, 2, Intent(c, AckReceiver::class.java), flags)
         val open = PendingIntent.getActivity(
             c, 3,
-            Intent(c, AckActivity::class.java).putExtra("pkg", items.last().pkg),
+            Intent(c, AckActivity::class.java)
+                .putExtra("pkg", items.last().pkg)
+                .putExtra("key", items.last().key),
             flags
         )
 
         val last = items.last()
         val inbox = Notification.InboxStyle()
-        items.takeLast(5).forEach { inbox.addLine("${label(it.pkg)}: ${it.title} ${it.text}".trim()) }
+        items.takeLast(5).forEach { inbox.addLine(label(it.pkg)) }
 
         val n = Notification.Builder(c, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
@@ -75,19 +81,29 @@ object Notifier {
                 if (items.size == 1) "Unacknowledged: ${label(last.pkg)}"
                 else "${items.size} unacknowledged alerts"
             )
-            .setContentText("${last.title} ${last.text}".trim())
+            .setContentText("Review the source app, then acknowledge this reminder")
             .setStyle(inbox)
             .setSubText("Reminder #$repeatNo")
             .setCategory(Notification.CATEGORY_MESSAGE)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setOnlyAlertOnce(false)          // sound + vibrate on EVERY repeat
             .setAutoCancel(true)
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
             .setContentIntent(open)           // tap = acknowledge + open source app
             .setDeleteIntent(ack)             // swipe away = acknowledge
-            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE", ack).build())
+            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE ALL", ack).build())
             .build()
-        nm.notify(NOTIF_ID, n)
+        val current = if (repeatNo % 2 == 0) NOTIF_ID_A else NOTIF_ID_B
+        val previous = if (repeatNo % 2 == 0) NOTIF_ID_B else NOTIF_ID_A
+        nm.cancel(previous)
+        if (!nm.areNotificationsEnabled() ||
+            (nm.getNotificationChannel(CHANNEL)?.importance ?: 0) < NotificationManager.IMPORTANCE_DEFAULT) {
+            EventLog.write(c, "reminder_blocked_or_silent",
+                "notifications_enabled" to nm.areNotificationsEnabled(),
+                "channel_importance" to nm.getNotificationChannel(CHANNEL)?.importance)
+        }
+        nm.notify(current, n)
+        EventLog.write(c, "reminder_posted", "id" to current, "n" to repeatNo)
     }
 }

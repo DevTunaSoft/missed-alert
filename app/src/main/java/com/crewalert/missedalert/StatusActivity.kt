@@ -35,6 +35,7 @@ class StatusActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RecoveryJobService.ensureScheduled(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
@@ -53,7 +54,8 @@ class StatusActivity : Activity() {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
         btn("2. Allow notifications") {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            else Toast.makeText(this, "Permission not required on this Android version", Toast.LENGTH_SHORT).show()
         }
         btn("3. Disable battery optimization") {
             startActivity(
@@ -108,9 +110,9 @@ class StatusActivity : Activity() {
     private fun refresh() {
         val nm = getSystemService(NotificationManager::class.java)
         val listener = nm.isNotificationListenerAccessGranted(ComponentName(this, MissedAlertListener::class.java))
-        val notif = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val notif = Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         val battery = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-        val exact = getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        val exact = Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
         info.text = buildString {
             appendLine("Notification access:   ${ok(listener)}")

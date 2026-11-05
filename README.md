@@ -107,3 +107,7 @@ deep Doze (stationary, screen off, unplugged). `setAlarmClock()` is exempt, so r
 ## Limits to know
 - The tone follows device volume / silent / DND. A phone on silent stays silent.
 - If the source app clears its own notification, that counts as acknowledged.
+
+
+## XCover Pro / managed background pilot (v1.1)
+Minimum Android API 29 (Android 10). Handles XCover Pro plus A14–A17, subject to physical-device validation. Managed app, **not a privileged system app**. Configure Knox listener access, alarm access, battery optimization and force-stop policies. 15-minute independent watchdog re-arms lost alarms when Android permits. Inexact fallback does not guarantee one-minute repeats. Alarm-clock reminder may display system alarm icon. A source app silently removing its notification does not count as crew acknowledgment; use the reminder's ACK action. Pilot audio/Doze/Knox evidence is pending. See docs/XCOVER_KNOX_PILOT.md.
