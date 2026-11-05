@@ -43,6 +43,14 @@ jobs:
       - name: Run Android lint and unit test tasks
         run: gradle :app:lintDebug :app:testDebugUnitTest --stacktrace
 
+      - name: Publish JVM test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: app/build/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+
       - name: Prepare release signing key (if configured)
         id: sign
         env:

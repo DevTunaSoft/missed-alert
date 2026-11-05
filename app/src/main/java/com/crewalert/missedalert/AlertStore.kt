@@ -35,9 +35,20 @@ object AlertStore {
     @Synchronized
     fun all(c: Context): List<Item> {
         val o = objectItems(c)
-        return o.keys().asSequence().map { k ->
-            val j = o.getJSONObject(k)
-            Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"))
+        return o.keys().asSequence().mapNotNull { k ->
+            try {
+                val j = o.getJSONObject(k)
+                if (!j.has("pkg") || !j.has("t") || j.optString("pkg").isBlank() ||
+                    j.optLong("t") <= 0L) {
+                    EventLog.write(c, "alert_entry_invalid")
+                    null
+                } else {
+                    Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"))
+                }
+            } catch (e: Exception) {
+                EventLog.write(c, "alert_entry_corrupt", "error" to e.javaClass.simpleName)
+                null
+            }
         }.sortedBy { it.postTime }.toList()
     }
 

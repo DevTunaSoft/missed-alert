@@ -48,3 +48,9 @@ kotlin {
 }
 
 // Intentionally no third-party dependencies: framework APIs only.
+
+// Exercise real Android SharedPreferences and org.json through Robolectric JVM tests.
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
+}
