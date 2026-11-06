@@ -24,6 +24,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.widget.TextView
+import android.graphics.Color
+import android.service.notification.NotificationListenerService
 
 /**
  * Setup / health screen. In production nobody needs to open it: Knox grants the permissions
@@ -32,16 +34,47 @@ import android.widget.TextView
  */
 class StatusActivity : Activity() {
     private lateinit var info: TextView
+    private lateinit var headline: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RecoveryJobService.ensureScheduled(this)
+        Notifier.ensureChannel(this)
+        try { Scheduler.ensureScheduled(this) } catch (e: Exception) {
+            EventLog.write(this, "diagnostics_alarm_recover_failed", "error" to e.javaClass.simpleName)
+        }
+        val listenerComponent = ComponentName(this, MissedAlertListener::class.java)
+        if (getSystemService(NotificationManager::class.java)
+                .isNotificationListenerAccessGranted(listenerComponent)) {
+            try { NotificationListenerService.requestRebind(listenerComponent) }
+            catch (e: Exception) {
+                EventLog.write(this, "diagnostics_listener_rebind_failed", "error" to e.javaClass.simpleName)
+            }
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
+            setBackgroundColor(Color.rgb(246, 248, 251))
             fitsSystemWindows = true
         }
-        info = TextView(this).apply { textSize = 15f }
+        root.addView(TextView(this).apply {
+            text = "MISSED ALERT"
+            textSize = 27f
+            setTextColor(Color.rgb(20, 38, 61))
+            setPadding(0, 10, 0, 6)
+        })
+        root.addView(TextView(this).apply {
+            text = "IT diagnostic dashboard • Monitoring starts automatically when permissions allow."
+            textSize = 14f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 0, 0, 20)
+        })
+        headline = TextView(this).apply {
+            textSize = 20f
+            setPadding(0, 4, 0, 12)
+        }
+        root.addView(headline)
+        info = TextView(this).apply { textSize = 15f; setTextColor(Color.rgb(32, 48, 68)) }
         root.addView(info, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         fun btn(label: String, action: () -> Unit) {
@@ -50,29 +83,37 @@ class StatusActivity : Activity() {
                 setOnClickListener { action(); refresh() }
             })
         }
-        btn("1. Grant notification access") {
+        btn("IT: Open notification access settings") {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
-        btn("2. Allow notifications") {
+        btn("IT: Allow notification posting") {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
             else Toast.makeText(this, "Permission not required on this Android version", Toast.LENGTH_SHORT).show()
         }
-        btn("3. Disable battery optimization") {
+        btn("IT: Open battery optimization settings") {
             startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
             )
         }
-        btn("Send test alert (repeats until acknowledged)") {
+        btn("TEST: Send alert immediately") {
             Notifier.ensureChannel(this)
             AlertStore.add(
                 this,
                 Item("test", packageName, "Test alert", "Repeats every minute until acknowledged", System.currentTimeMillis())
             )
             AlertStore.resetRepeats(this)
+            try {
+                Notifier.show(this, AlertStore.all(this), 1)
+                AlertStore.incRepeats(this)
+            } catch (e: Exception) {
+                EventLog.write(this, "test_alert_failed", "error" to e.javaClass.simpleName)
+                Toast.makeText(this, "Test alert failed. Check notification permissions.", Toast.LENGTH_LONG).show()
+            }
             Scheduler.scheduleNext(this)
         }
-        btn("Acknowledge all") { Acker.ackAll(this, "status_screen") }
-        btn("Export log (saves to Downloads)") { exportLog() }
+        btn("IT: Acknowledge all pending alerts") { Acker.ackAll(this, "status_screen") }
+        btn("Refresh device status") { refresh() }
+        btn("Export diagnostic report to Downloads") { exportLog() }
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -108,35 +149,67 @@ class StatusActivity : Activity() {
         }
     }
 
-    private fun ok(b: Boolean) = if (b) "OK" else "MISSING"
+    private fun yes(b: Boolean) = if (b) "OK" else "MISSING"
 
     private fun refresh() {
         val nm = getSystemService(NotificationManager::class.java)
-        val listener = nm.isNotificationListenerAccessGranted(ComponentName(this, MissedAlertListener::class.java))
-        val notif = Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val component = ComponentName(this, MissedAlertListener::class.java)
+        val access = try { nm.isNotificationListenerAccessGranted(component) } catch (_: Exception) { false }
+        val bound = MissedAlertListener.instance != null
+        val posting = Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val enabled = nm.areNotificationsEnabled()
+        val channel = nm.getNotificationChannel("realert_v2")
+        val channelAudible = channel != null && channel.importance >= NotificationManager.IMPORTANCE_DEFAULT
         val battery = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-        val exact = Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
-
+        val exact = Build.VERSION.SDK_INT < 31 ||
+            getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        val issues = mutableListOf<String>()
+        if (!access) issues.add("Notification access is OFF. The app cannot read MDT or text alerts.")
+        if (access && !bound) issues.add("Notification listener has not connected yet. Check Android restrictions.")
+        if (!posting) issues.add("Notification posting permission is OFF.")
+        if (!enabled) issues.add("Android has disabled notifications for this app.")
+        if (!channelAudible) issues.add("Reminder channel is disabled or set to silent/low importance.")
+        if (!battery) issues.add("Battery exemption is missing; Knox should allowlist this app.")
+        if (!exact) issues.add("Exact alarms are unavailable; repeats can be delayed in Doze.")
+        val ready = access && bound && posting && enabled && channelAudible
+        headline.text = if (ready) "MONITORING ACTIVE" else "NOT READY — ACTION REQUIRED"
+        headline.setTextColor(if (ready) Color.rgb(15, 112, 65) else Color.rgb(177, 52, 39))
+        val pending = try { AlertStore.count(this).toString() }
+            catch (_: Exception) { "UNREADABLE — export diagnostics" }
+        val watched = try { Config.watchedPackages(this).sorted().joinToString("\n  ") }
+            catch (_: Exception) { "Unable to load watched packages" }
+        val recent = try { EventLog.tail(this, 14).joinToString("\n") }
+            catch (_: Exception) { "Unable to read diagnostic log" }
         info.text = buildString {
-            appendLine("Notification access:   ${ok(listener)}")
-            appendLine("Post notifications:    ${ok(notif)}")
-            appendLine("Battery unrestricted:  ${ok(battery)}")
-            appendLine("Exact alarms:          ${ok(exact)}")
+            appendLine("HOW IT WORKS")
+            appendLine("The app automatically monitors watched notifications while Android allows the listener to run.")
+            appendLine("No crew button presses are required. This page is for IT verification only.")
             appendLine()
-            appendLine("Repeat every ${Config.intervalMs(this@StatusActivity) / 1000}s" +
-                    (Config.maxRepeats(this@StatusActivity).let { if (it > 0) ", max $it" else ", until acknowledged" }))
-            appendLine("Pending alerts: ${AlertStore.count(this@StatusActivity)}")
-            appendLine("Log: adb pull /sdcard/Android/data/${this@StatusActivity.packageName}/files/logs")
+            appendLine("DEVICE READINESS")
+            appendLine("Notification access: ${yes(access)}")
+            appendLine("Listener connected: ${yes(bound)}")
+            appendLine("Can post notifications: ${yes(posting && enabled)}")
+            appendLine("Reminder channel audible: ${yes(channelAudible)}")
+            appendLine("Battery unrestricted: ${yes(battery)}")
+            appendLine("Exact alarm permission: ${yes(exact)}")
+            appendLine("Pending alerts: $pending")
+            appendLine("Repeat interval: ${Config.intervalMs(this@StatusActivity) / 1000} seconds")
             appendLine()
-            appendLine("Watching:")
-            Config.watchedPackages(this@StatusActivity).sorted().forEach { appendLine("  $it") }
+            if (issues.isNotEmpty()) {
+                appendLine("WHAT NEEDS ATTENTION")
+                issues.forEach { appendLine("• $it") }
+                appendLine()
+            }
+            appendLine("VERIFY DELIVERY")
+            appendLine("Tap TEST: Send alert immediately. You should receive a notification now; it should repeat until acknowledged.")
+            appendLine("If there is no sound, check channel sound, notification volume, DND, and Knox notification policy.")
             appendLine()
-            appendLine("Apps that have posted notifications")
-            appendLine("(use to find the MDT app's package name):")
-            AlertStore.seen(this@StatusActivity).forEach { appendLine("  $it") }
+            appendLine("WATCHED APP PACKAGES")
+            appendLine("  $watched")
             appendLine()
-            appendLine("Recent events:")
-            EventLog.tail(this@StatusActivity, 25).forEach { appendLine(it) }
+            appendLine("RECENT DIAGNOSTICS")
+            appendLine(recent.ifBlank { "No events yet" })
         }
     }
 }
