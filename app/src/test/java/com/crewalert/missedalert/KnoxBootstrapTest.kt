@@ -82,6 +82,14 @@ class KnoxBootstrapTest {
         }
     }
 
+    @Test fun manualLaunchOpensITDashboardInsteadOfAppearingDead() {
+        val activity = Robolectric.buildActivity(BootstrapActivity::class.java).create().get()
+        val launched = org.robolectric.Shadows.shadowOf(activity).nextStartedActivity
+        assertNotNull("manual startup must display IT diagnostics", launched)
+        assertEquals(StatusActivity::class.java.name, launched.component?.className)
+        assertTrue(activity.isFinishing)
+    }
+
     @Test fun emptyInstallAutoLaunchNeedsNoSetupClick() {
         val activity = Robolectric.buildActivity(BootstrapActivity::class.java).create().get()
         assertTrue(activity.isFinishing)
