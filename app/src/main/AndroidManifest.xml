@@ -42,7 +42,7 @@
         <!-- IT-only diagnostics: not offered as a crew launcher. -->
         <activity
             android:name=".StatusActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <!-- Invisible trampoline: tapping the reminder acknowledges, then opens the source app -->
         <activity
