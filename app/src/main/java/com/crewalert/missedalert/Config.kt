@@ -48,6 +48,10 @@ object Config {
         return (SMS_PACKAGES + extra).toSet()
     }
 
+    /** Knox sets true to launch silently. Default false gives IT a visible status screen. */
+    fun headlessOnLaunch(c: Context): Boolean =
+        restrictions(c).getBoolean("headless_on_launch", false)
+
     fun intervalMs(c: Context): Long =
         restrictions(c).getInt("interval_seconds", 60).coerceAtLeast(15) * 1000L
 

@@ -44,6 +44,15 @@ class BootstrapActivity : Activity() {
         } catch (e: Exception) {
             EventLog.write(this, "bootstrap_failed", "error" to e.javaClass.simpleName)
         } finally {
+            // A manual launch must not look like a dead application. Knox can opt in
+            // to invisible startup using managed configuration.
+            if (!Config.headlessOnLaunch(this)) {
+                try {
+                    startActivity(android.content.Intent(this, StatusActivity::class.java))
+                } catch (e: Exception) {
+                    EventLog.write(this, "diagnostics_launch_failed", "error" to e.javaClass.simpleName)
+                }
+            }
             finish()
         }
     }
