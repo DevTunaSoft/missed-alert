@@ -5,4 +5,6 @@
     <string name="r_extra_desc">Comma-separated package names, e.g. the TraumaSoft MDT app. SMS apps are always watched.</string>
     <string name="r_interval_title">Repeat interval (seconds)</string>
     <string name="r_max_title">Max repeats (0 = until acknowledged)</string>
+    <string name="r_headless_title">Launch invisibly in Knox kiosk</string>
+    <string name="r_headless_desc">IT sets true for silent Knox auto-run. Leave false for visible diagnostics.</string>
 </resources>

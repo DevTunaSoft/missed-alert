@@ -18,8 +18,8 @@
         android:defaultValue="0" />
     <restriction
         android:key="headless_on_launch"
-        android:title="Launch invisibly in Knox kiosk"
-        android:description="IT sets true for silent Knox auto-run. Leave false for visible diagnostic screen."
+        android:title="@string/r_headless_title"
+        android:description="@string/r_headless_desc"
         android:restrictionType="bool"
         android:defaultValue="false" />
 </restrictions>
