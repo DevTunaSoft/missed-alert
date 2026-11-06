@@ -82,6 +82,31 @@ jobs:
         if: steps.sign.outputs.signed != 'true'
         run: gradle :app:assembleDebug --stacktrace
 
+      - name: Verify APK integrity, installed metadata and signature
+        env:
+          SIGNED: ${{ steps.sign.outputs.signed }}
+        run: |
+          set -euo pipefail
+          if [ "$SIGNED" = "true" ]; then
+            APK="app/build/outputs/apk/release/app-release.apk"
+          else
+            APK="app/build/outputs/apk/debug/app-debug.apk"
+          fi
+          unzip -tq "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signature-verification.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee apk-badging-verification.txt
+          grep -q "package: name='com.crewalert.missedalert' versionCode='4' versionName='1.2.1'" apk-badging-verification.txt
+          grep -q "sdkVersion:'29'" apk-badging-verification.txt
+          grep -q "targetSdkVersion:'36'" apk-badging-verification.txt
+          grep -E '^application:.*icon=' apk-badging-verification.txt
+          test "$(unzip -p "$APK" res/drawable-nodpi-v4/ic_missed_alert.png | wc -c)" -gt 100 || (
+            echo "APK must contain a usable app icon" >&2; exit 1
+          )
+          if [ "$SIGNED" != "true" ]; then
+            echo "::warning::APK VERIFIED but DEBUG-SIGNED. Not validated for updating previously signed enterprise installations."
+          fi
+          sha256sum "$APK" | tee apk-sha256.txt
+
       - name: Verify signature
         if: steps.sign.outputs.signed == 'true'
         run: |
