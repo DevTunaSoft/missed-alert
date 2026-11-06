@@ -95,13 +95,17 @@ jobs:
           unzip -tq "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signature-verification.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee apk-badging-verification.txt
-          grep -q "package: name='com.crewalert.missedalert' versionCode='4' versionName='1.2.1'" apk-badging-verification.txt
+          grep -q "package: name='com.crewalert.missedalert' versionCode='5' versionName='1.2.2-pilot'" apk-badging-verification.txt
           grep -q "sdkVersion:'29'" apk-badging-verification.txt
           grep -q "targetSdkVersion:'36'" apk-badging-verification.txt
           grep -E '^application:.*icon=' apk-badging-verification.txt
-          test "$(unzip -p "$APK" res/drawable-nodpi-v4/ic_missed_alert.png | wc -c)" -gt 100 || (
-            echo "APK must contain a usable app icon" >&2; exit 1
-          )
+          ICON_PATH=$(sed -n "s/^application:.* icon='\\([^']*\\)'.*/\\1/p" apk-badging-verification.txt | head -n 1)
+          test -n "$ICON_PATH" || { echo "APK manifest missing launcher icon" >&2; exit 1; }
+          ICON_BYTES=$(unzip -p "$APK" "$ICON_PATH" | wc -c)
+          test "$ICON_BYTES" -gt 100 || {
+            echo "APK icon resource invalid: $ICON_PATH" >&2; exit 1;
+          }
+          echo "APK icon verified: $ICON_PATH ($ICON_BYTES bytes)"
           if [ "$SIGNED" != "true" ]; then
             echo "::warning::APK VERIFIED but DEBUG-SIGNED. Not validated for updating previously signed enterprise installations."
           fi
