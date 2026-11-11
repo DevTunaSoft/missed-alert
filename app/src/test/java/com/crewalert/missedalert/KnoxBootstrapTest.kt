@@ -60,6 +60,26 @@ class KnoxBootstrapTest {
         assertFalse(launches(".StatusActivity"))
     }
 
+    @Test fun itDiagnosticsEntryRequiresShellPrivilegeAndHasNoLauncherIcon() {
+        val manifest = listOf(
+            java.io.File("src/main/AndroidManifest.xml"),
+            java.io.File("app/src/main/AndroidManifest.xml")
+        ).first { it.isFile }
+        val document = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(manifest)
+        val activities = document.getElementsByTagName("activity")
+        val diagnostic = (0 until activities.length)
+            .map { activities.item(it) as org.w3c.dom.Element }
+            .first { it.getAttribute("android:name") == ".ItDiagnosticsActivity" }
+        assertEquals("true", diagnostic.getAttribute("android:exported"))
+        assertEquals("android.permission.DUMP", diagnostic.getAttribute("android:permission"))
+        assertEquals(0, diagnostic.getElementsByTagName("intent-filter").length)
+        val status = (0 until activities.length)
+            .map { activities.item(it) as org.w3c.dom.Element }
+            .first { it.getAttribute("android:name") == ".StatusActivity" }
+        assertEquals("false", status.getAttribute("android:exported"))
+    }
+
     @Test fun firstRunInitializesWatchdogWithoutButtonPress() {
         val activity = Robolectric.buildActivity(BootstrapActivity::class.java).create().get()
         assertTrue(activity.isFinishing)

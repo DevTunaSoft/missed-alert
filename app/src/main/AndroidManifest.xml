@@ -44,6 +44,13 @@
             android:name=".StatusActivity"
             android:exported="false" />
 
+        <!-- IT-only explicit component. Android's DUMP signature permission is held by
+             the adb shell/system, not ordinary kiosk applications. No launcher icon. -->
+        <activity
+            android:name=".ItDiagnosticsActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+
         <!-- Invisible trampoline: tapping the reminder acknowledges, then opens the source app -->
         <activity
             android:name=".AckActivity"

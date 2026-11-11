@@ -4,6 +4,10 @@ import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
 import android.app.job.JobService
+import android.app.NotificationManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
@@ -30,14 +34,26 @@ class RecoveryJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         try {
+            val nm = getSystemService(NotificationManager::class.java)
+            val listenerComponent = ComponentName(this, MissedAlertListener::class.java)
+            val listenerAccess = nm.isNotificationListenerAccessGranted(listenerComponent)
+            val postGranted = Build.VERSION.SDK_INT < 33 ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             EventLog.write(this, "watchdog_fired", "pending" to AlertStore.count(this),
-                "listener_bound" to (MissedAlertListener.instance != null))
+                "listener_bound" to (MissedAlertListener.instance != null),
+                "listener_access" to listenerAccess,
+                "post_granted" to postGranted,
+                "notifications_enabled" to nm.areNotificationsEnabled(),
+                "channel_importance" to nm.getNotificationChannel("realert_v2")?.importance)
             if (MissedAlertListener.instance == null) {
-                try {
-                    NotificationListenerService.requestRebind(
-                        ComponentName(this, MissedAlertListener::class.java))
-                } catch (e: Exception) {
-                    EventLog.write(this, "watchdog_rebind_failed", "error" to e.javaClass.simpleName)
+                if (!listenerAccess) {
+                    EventLog.write(this, "watchdog_listener_permission_missing")
+                } else {
+                    try {
+                        NotificationListenerService.requestRebind(listenerComponent)
+                    } catch (e: Exception) {
+                        EventLog.write(this, "watchdog_rebind_failed", "error" to e.javaClass.simpleName)
+                    }
                 }
             }
             Scheduler.ensureScheduled(this)

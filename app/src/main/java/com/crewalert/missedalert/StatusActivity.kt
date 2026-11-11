@@ -32,7 +32,7 @@ import android.service.notification.NotificationListenerService
  * and the listener runs on its own. It's here for staging, troubleshooting, and for discovering
  * the MDT app's package name (see "Apps that have posted notifications").
  */
-class StatusActivity : Activity() {
+open class StatusActivity : Activity() {
     private lateinit var info: TextView
     private lateinit var headline: TextView
 

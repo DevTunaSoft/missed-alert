@@ -29,3 +29,9 @@ assert '.putExtra("key", items.last().key)' in read('Notifier')
 assert 'RETAIN_DAYS = 8' in read('EventLog')
 assert 'for (file in files(c))' in read('EventLog')
 assert 'prune(c)' in read('EventLog')
+
+# Explicit IT diagnostics must not expose the dashboard to ordinary kiosk apps.
+assert 'android.permission.DUMP' in (root / 'app/src/main/AndroidManifest.xml').read_text()
+assert 'class ItDiagnosticsActivity : StatusActivity()' in read('ItDiagnosticsActivity')
+assert 'Intent(c, BootstrapActivity::class.java)' in read('Scheduler')
+assert 'watchdog_listener_permission_missing' in read('RecoveryJobService')

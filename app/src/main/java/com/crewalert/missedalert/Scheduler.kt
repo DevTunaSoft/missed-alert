@@ -41,7 +41,7 @@ object Scheduler {
         try {
             if (exact) {
                 val show = PendingIntent.getActivity(
-                    c, 4, Intent(c, StatusActivity::class.java),
+                    c, 4, Intent(c, BootstrapActivity::class.java),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 am.setAlarmClock(

@@ -58,3 +58,21 @@ Record device model, Android version, One UI, Knox firmware/policy version, APK 
 - https://docs.samsungknox.com/admin/knox-manage/new-console/manage-apps/assign-apps/
 - https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/policies.html
 - https://docs.samsungknox.com/admin/knox-manage/new-console/manage-devices/send-device-commands/
+
+## IT diagnostics when the crew launcher is invisible
+
+**Confirmed code defect fixed:** with `headless_on_launch=true`, starting the normal launcher intentionally closes without displaying `StatusActivity`; the diagnostic Activity was non-exported, so even IT could not launch it separately.
+
+An independent **shell-protected** diagnostic entry point is now available, without showing an app in the crew kiosk:
+
+```sh
+adb shell am start -n com.crewalert.missedalert/.ItDiagnosticsActivity
+```
+
+This requires IT-authorized ADB access to a test phone (USB debugging or approved remote ADB). It is not a crew action, and the entry point requires the privileged `android.permission.DUMP` permission held by the shell/system. Ordinary applications cannot open it. **Knox Manage's generic Run App action still invokes the invisible launcher**; do not expect that command to display diagnostics. For a remotely managed fleet, retrieve Knox policy application results and system/diagnostic logs instead of enabling a crew-facing diagnostics launcher.
+
+The Android alarm-clock system icon now points to the invisible bootstrap rather than the private diagnostic Activity, avoiding an accidental crew-facing diagnostic entry.
+
+The 15-minute watchdog now logs `listener_access`, `post_granted`, `notifications_enabled`, and `channel_importance` at each run. If listener permission is absent, it logs `watchdog_listener_permission_missing` instead of repeatedly requesting a rebind that cannot succeed.
+
+**Still unverified:** The new protected diagnostic Activity, Knox upload, Samsung device launch, KSP permission application, and real audible repeat behavior require a successful CI run and actual Samsung hardware checks. Source changes alone do not prove delivery.
