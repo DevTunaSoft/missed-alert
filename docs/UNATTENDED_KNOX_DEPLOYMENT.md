@@ -76,3 +76,7 @@ The Android alarm-clock system icon now points to the invisible bootstrap rather
 The 15-minute watchdog now logs `listener_access`, `post_granted`, `notifications_enabled`, and `channel_importance` at each run. If listener permission is absent, it logs `watchdog_listener_permission_missing` instead of repeatedly requesting a rebind that cannot succeed.
 
 **Still unverified:** The new protected diagnostic Activity, Knox upload, Samsung device launch, KSP permission application, and real audible repeat behavior require a successful CI run and actual Samsung hardware checks. Source changes alone do not prove delivery.
+
+## Pilot APK versioning (2026-11-11)
+
+The IT diagnostic fix is released as **versionCode 6 / versionName 1.2.3-pilot**, rather than reusing versionCode 5. Android and Knox normally require a higher versionCode to update an installed or registered in-house app. Keep the existing release-signing key; changing keys can also block upgrades. If Knox reports an invalid file, verify the APK's SHA-256 digest against the published GitHub release, and check the version already registered in Knox. Do not assume the APK is invalid solely from the Knox dialog.

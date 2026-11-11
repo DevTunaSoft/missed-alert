@@ -95,7 +95,7 @@ jobs:
           unzip -tq "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signature-verification.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee apk-badging-verification.txt
-          grep -q "package: name='com.crewalert.missedalert' versionCode='5' versionName='1.2.2-pilot'" apk-badging-verification.txt
+          grep -q "package: name='com.crewalert.missedalert' versionCode='6' versionName='1.2.3-pilot'" apk-badging-verification.txt
           grep -q "sdkVersion:'29'" apk-badging-verification.txt
           grep -q "targetSdkVersion:'36'" apk-badging-verification.txt
           grep -E '^application:.*icon=' apk-badging-verification.txt
