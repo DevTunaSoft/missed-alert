@@ -35,7 +35,7 @@ class ReminderQueueContinuityTest {
             .setContentTitle("New message")
             .build()
         listener.onNotificationPosted(StatusBarNotification(
-            pkg, pkg, id, null, Process.myUid(), 0, n, UserHandle.CURRENT, time
+            pkg, pkg, id, null, Process.myUid(), 0, 0, n, UserHandle.of(0), time
         ))
     }
 
