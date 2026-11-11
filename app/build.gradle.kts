@@ -11,8 +11,8 @@ android {
         applicationId = "com.crewalert.missedalert"
         minSdk = 29          // Android 10+: Galaxy XCover Pro through A14-A17
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.2.3-pilot"
+        versionCode = 7
+        versionName = "1.2.4-pilot"
     }
 
     // Release signing: values come from the build environment (GitHub secrets). The key is never in the repo.

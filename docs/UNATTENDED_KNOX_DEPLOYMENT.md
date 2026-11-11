@@ -94,3 +94,7 @@ The IT diagnostic fix is released as **versionCode 6 / versionName 1.2.3-pilot**
 ## Repeat continuity fix (2026-11-11)
 
 Source notification bursts and reposts previously reset the reminder interval whenever the listener observed a new notification generation. This could postpone the first reminder indefinitely on busy phones. The listener now resets the repeat counter only when the queue transitions from empty to nonempty, and preserves the already scheduled alarm for subsequent arrivals. Robolectric regression tests cover additional messages and reposts. This does **not** bypass missing notification access, disabled notification posting, silent channels, or Doze-related inexact alarm delays; physical-device verification remains mandatory.
+
+## Pilot version 1.2.4 / code 7
+
+The reminder continuity fix ships as versionCode 7 so Knox can upgrade from versionCode 6 without a same-version replacement. GitHub Actions now cancels older in-progress runs for the same ref to reduce stale `latest` release publication races. Verify the release SHA matches `main` before deployment.
