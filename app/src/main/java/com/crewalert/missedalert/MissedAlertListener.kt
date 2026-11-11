@@ -108,7 +108,10 @@ class MissedAlertListener : NotificationListenerService() {
         }
 
         val extras = n.extras
-        val isNewAlert = AlertStore.all(this).none { it.key == sbn.key && it.postTime == sbn.postTime }
+        val existing = AlertStore.all(this)
+        val isNewAlert = existing.none { it.key == sbn.key && it.postTime == sbn.postTime }
+        // Reposting or updating a source notification must not keep pushing the
+        // first reminder 60 seconds into the future. Preserve the earliest alarm.
         AlertStore.add(
             this,
             Item(
@@ -124,12 +127,15 @@ class MissedAlertListener : NotificationListenerService() {
             this, "alert_tracked",
             "source" to source, "pkg" to pkg, "channel" to channel,
             "kind" to (if (missedCall) "missed_call" else "watched_app"),
-            "pending" to AlertStore.count(this)
+            "new" to isNewAlert, "pending" to AlertStore.count(this)
         )
-        if (isNewAlert) {
+        if (existing.isEmpty()) {
             AlertStore.resetRepeats(this)
             Scheduler.scheduleNext(this)
-        } else if (!Scheduler.isPending(this)) Scheduler.scheduleNext(this)
+        } else {
+            // Preserve the original due time even when more notifications arrive.
+            Scheduler.ensureScheduled(this)
+        }
         }
     }
 
