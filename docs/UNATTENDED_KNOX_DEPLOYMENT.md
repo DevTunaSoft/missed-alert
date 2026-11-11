@@ -80,3 +80,13 @@ The 15-minute watchdog now logs `listener_access`, `post_granted`, `notification
 ## Pilot APK versioning (2026-11-11)
 
 The IT diagnostic fix is released as **versionCode 6 / versionName 1.2.3-pilot**, rather than reusing versionCode 5. Android and Knox normally require a higher versionCode to update an installed or registered in-house app. Keep the existing release-signing key; changing keys can also block upgrades. If Knox reports an invalid file, verify the APK's SHA-256 digest against the published GitHub release, and check the version already registered in Knox. Do not assume the APK is invalid solely from the Knox dialog.
+
+## Fleet constraint: no physical access, no ADB (2026-11-11)
+
+**Deployment reality:** IT cannot physically access managed phones, and ADB/USB shell diagnostics are unavailable. Do not prescribe `adb shell am start` as the fleet troubleshooting path. The shell-protected diagnostic Activity is a lab-only fallback and does **not** meet remote fleet acceptance.
+
+**Immediate remote-only triage:** Use Knox Manage to confirm app version and assignment, installation/update results, policy sync, KSP installation/managed-config results, and any available remote support session. If a Knox remote-support screen viewer is provisioned, IT may temporarily set `headless_on_launch=false` for a single test device and remotely invoke Run App, then restore `true`. This requires the viewer; Run App alone cannot retrieve the dashboard contents. Do not require crew action.
+
+**Unimplemented requirement:** A secure unattended diagnostic transport is needed for headless production devices. The current on-device log export saves to Downloads and is not a remote reporting channel. Proposed minimum telemetry: package/version/OS/model, permission and listener state, last watched notification (package/channel only), pending count, next alarm, alarm fires and delays, notification post success/failure, notification/channel audibility, boot/update and watchdog state, and last failure category. Do not transmit message bodies, titles, contacts, or phone numbers. Prefer an IT-approved authenticated HTTPS receiver with strict TLS verification, bounded local spool/backoff, upload quotas, retention, and opt-in policy; never invent an endpoint or embed shared credentials. Alternatively use an existing approved Knox/MDM diagnostics transport if it supports app-specific logs.
+
+**Remote acceptance gate:** prove central IT can obtain diagnostic state and recover app monitoring after a reboot/update without any crew interaction, physical access, ADB, or a visible kiosk icon. Do not call the app fleet-ready until the telemetry transport, policy application, and real audible repeats are tested on target hardware.
