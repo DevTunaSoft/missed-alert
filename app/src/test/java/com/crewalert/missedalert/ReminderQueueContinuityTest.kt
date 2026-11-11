@@ -3,7 +3,6 @@ package com.crewalert.missedalert
 import android.app.Notification
 import android.content.Context
 import android.os.Process
-import android.os.UserHandle
 import android.service.notification.StatusBarNotification
 import org.junit.Assert.*
 import org.junit.Before
@@ -35,7 +34,7 @@ class ReminderQueueContinuityTest {
             .setContentTitle("New message")
             .build()
         listener.onNotificationPosted(StatusBarNotification(
-            pkg, pkg, id, null, Process.myUid(), 0, 0, n, UserHandle.of(0), time
+            pkg, pkg, id, null, Process.myUid(), 0, 0, n, Process.myUserHandle(), time
         ))
     }
 
