@@ -48,9 +48,12 @@ class MissedAlertListener : NotificationListenerService() {
         }
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) = track(sbn, "posted")
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        safelyTrack(sbn, "posted")
+    }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
+        try {
         synchronized(AlertStore) {
         if (sbn.packageName == packageName) return
         // Android distinguishes a user swipe (CANCEL) from source-app removal
@@ -74,6 +77,22 @@ class MissedAlertListener : NotificationListenerService() {
                 AlertStore.resetRepeats(this)
             }
         }
+        }
+        } catch (e: Exception) {
+            // A corrupt or temporarily unwritable store must not escape a system
+            // callback and silently stop listener processing. Preserve evidence and
+            // let the watchdog attempt scheduling/recovery.
+            EventLog.write(this, "notification_removal_failed", "error" to e.javaClass.simpleName)
+            RecoveryJobService.ensureScheduled(this)
+        }
+    }
+
+    private fun safelyTrack(sbn: StatusBarNotification, source: String) {
+        try {
+            track(sbn, source)
+        } catch (e: Exception) {
+            EventLog.write(this, "notification_tracking_failed", "error" to e.javaClass.simpleName)
+            RecoveryJobService.ensureScheduled(this)
         }
     }
 
