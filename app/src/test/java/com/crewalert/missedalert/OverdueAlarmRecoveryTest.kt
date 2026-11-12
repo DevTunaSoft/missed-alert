@@ -26,6 +26,7 @@ class OverdueAlarmRecoveryTest {
         AlertStore.add(context, Item("dispatch", "com.traumasoft.mdt", "", "", 1000L))
         assertTrue(Scheduler.scheduleNext(context))
         val repeats = AlertStore.repeats(context)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(10))
         AlertStore.setNextAt(context, SystemClock.elapsedRealtime() - 5000L)
 
         Scheduler.ensureScheduled(context)
