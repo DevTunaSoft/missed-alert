@@ -133,28 +133,37 @@ open class StatusActivity : Activity() {
         refresh()
     }
 
-    /** Saves the full event log to Downloads (no file picker and no permissions needed, so it works in a kiosk). */
+    /** Stream the report to Downloads; discard incomplete archives after I/O failures. */
     private fun exportLog() {
         val name = "MissedAlert-log-" +
             SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".zip"
+        var uri: Uri? = null
         try {
-            val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
-            val header = "Missed Alert log export\n" +
-                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n" +
-                "App version: $version\n\n" + info.text
+            val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "?" }
+            val header = "Missed Alert log export\\n" +
+                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\\n" +
+                "App version: $version\\n\\n" + info.text
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
                 put(MediaStore.Downloads.MIME_TYPE, "application/zip")
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
             }
-            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: throw IllegalStateException("could not create file")
             val output = contentResolver.openOutputStream(uri)
                 ?: throw IllegalStateException("Downloads output stream unavailable")
             output.use { EventLog.exportZip(this, header, it) }
+            contentResolver.update(uri, ContentValues().apply {
+                put(MediaStore.Downloads.IS_PENDING, 0)
+            }, null, null)
             EventLog.write(this, "log_exported", "file" to name)
             Toast.makeText(this, "Saved to Downloads/$name", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
+            uri?.let { created ->
+                try { contentResolver.delete(created, null, null) } catch (_: Exception) { }
+            }
+            EventLog.write(this, "log_export_failed", "error" to e.javaClass.simpleName)
             Toast.makeText(this, "Export failed: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
         }
     }
