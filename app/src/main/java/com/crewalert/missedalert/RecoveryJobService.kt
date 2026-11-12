@@ -83,6 +83,14 @@ class RecoveryJobService : JobService() {
                     (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L))
             if (!alarmHealthy) EventLog.write(this, "self_test_alarm_recovery")
             Scheduler.ensureScheduled(this)
+            // Verify recovery in the same job without another wakeup.
+            if (!alarmHealthy) {
+                val recovered = Scheduler.isPending(this)
+                EventLog.write(this, "self_test_recovery_result",
+                    "alarm" to (if (recovered) "pass" else "fail"),
+                    "pending" to AlertStore.count(this),
+                    "next_at_elapsed_ms" to AlertStore.nextAt(this))
+            }
         } catch (e: Exception) {
             EventLog.write(this, "watchdog_failed", "error" to e.javaClass.simpleName)
         }
