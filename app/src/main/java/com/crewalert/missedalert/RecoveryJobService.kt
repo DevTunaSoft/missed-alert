@@ -81,6 +81,22 @@ class RecoveryJobService : JobService() {
                 "pending" to pending,
                 "overdue_ms" to (if (pending > 0 && dueAt > 0L)
                     (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L))
+            // Report deployment blockers explicitly; a background service cannot
+            // silently grant Android's notification listener or posting permissions.
+            if (!listenerAccess || !postGranted || !nm.areNotificationsEnabled()) {
+                EventLog.write(this, "knox_permission_blocker",
+                    "listener_access" to listenerAccess,
+                    "post_granted" to postGranted,
+                    "notifications_enabled" to nm.areNotificationsEnabled(),
+                    "action" to "grant_in_device_policy_or_settings")
+            }
+            if (channel != null && (channel.importance < NotificationManager.IMPORTANCE_DEFAULT ||
+                    channel.sound == null)) {
+                EventLog.write(this, "reminder_channel_blocker",
+                    "importance" to channel.importance,
+                    "sound_present" to (channel.sound != null),
+                    "action" to "inspect_notification_channel_settings")
+            }
             if (!alarmHealthy) EventLog.write(this, "self_test_alarm_recovery")
             Scheduler.ensureScheduled(this)
             // Verify recovery in the same job without another wakeup.
