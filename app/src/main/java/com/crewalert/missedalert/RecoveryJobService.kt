@@ -11,6 +11,7 @@ import android.os.Build
 import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
+import android.os.SystemClock
 
 /** Coarse recovery only: Android can defer jobs and cannot restart a force-stopped application. */
 class RecoveryJobService : JobService() {
@@ -56,6 +57,22 @@ class RecoveryJobService : JobService() {
                     }
                 }
             }
+            // Passive health check: no synthetic alerts or acknowledgment mutations.
+            val pending = AlertStore.count(this)
+            val dueAt = AlertStore.nextAt(this)
+            val alarmHealthy = pending == 0 || Scheduler.isPending(this)
+            val listenerHealthy = listenerAccess && MissedAlertListener.instance != null
+            val channel = nm.getNotificationChannel("realert_v2")
+            val reminderHealthy = postGranted && nm.areNotificationsEnabled() &&
+                channel != null && channel.importance >= NotificationManager.IMPORTANCE_DEFAULT
+            EventLog.write(this, "self_test",
+                "listener" to (if (listenerHealthy) "pass" else "fail"),
+                "reminder_channel" to (if (reminderHealthy) "pass" else "fail"),
+                "alarm" to (if (alarmHealthy) "pass" else "fail"),
+                "pending" to pending,
+                "overdue_ms" to (if (pending > 0 && dueAt > 0L)
+                    (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L))
+            if (!alarmHealthy) EventLog.write(this, "self_test_alarm_recovery")
             Scheduler.ensureScheduled(this)
         } catch (e: Exception) {
             EventLog.write(this, "watchdog_failed", "error" to e.javaClass.simpleName)
