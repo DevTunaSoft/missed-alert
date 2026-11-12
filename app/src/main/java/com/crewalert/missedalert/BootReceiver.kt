@@ -34,13 +34,26 @@ class BootReceiver : BroadcastReceiver() {
         }
         if (action == "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED") {
             EventLog.write(context, "exact_permission_changed")
-            if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
+            try {
+                if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
+            } catch (e: Exception) {
+                EventLog.write(context, "exact_permission_recovery_failed",
+                    "error" to e.javaClass.simpleName)
+                RecoveryJobService.ensureScheduled(context)
+            }
             return
         }
         if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
-            EventLog.write(context, "clock_changed", "action" to action.substringAfterLast('.'),
-                "pending" to AlertStore.count(context))
-            if (AlertStore.count(context) > 0) Scheduler.scheduleNext(context)
+            try {
+                val pending = AlertStore.count(context)
+                EventLog.write(context, "clock_changed", "action" to action.substringAfterLast('.'),
+                    "pending" to pending)
+                if (pending > 0) Scheduler.scheduleNext(context)
+            } catch (e: Exception) {
+                EventLog.write(context, "clock_change_recovery_failed",
+                    "error" to e.javaClass.simpleName)
+                RecoveryJobService.ensureScheduled(context)
+            }
             return
         }
         EventLog.write(context, "boot_or_update", "action" to action.substringAfterLast('.'))
