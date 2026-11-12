@@ -37,6 +37,21 @@ class UnattendedBootTest {
         assertEquals("{corrupt", context.getSharedPreferences("alerts", Context.MODE_PRIVATE)
             .getString("items", null))
     }
+    @Test fun corruptedAlertStoreDoesNotCrashExactAlarmPermissionCallback() {
+        context.getSharedPreferences("alerts", Context.MODE_PRIVATE).edit()
+            .putString("items", "{corrupt").commit()
+        BootReceiver().onReceive(context,
+            Intent("android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"))
+        assertEquals("{corrupt", context.getSharedPreferences("alerts", Context.MODE_PRIVATE)
+            .getString("items", null))
+    }
+    @Test fun corruptedAlertStoreDoesNotCrashClockChangeCallback() {
+        context.getSharedPreferences("alerts", Context.MODE_PRIVATE).edit()
+            .putString("items", "{corrupt").commit()
+        BootReceiver().onReceive(context, Intent(Intent.ACTION_TIMEZONE_CHANGED))
+        assertEquals("{corrupt", context.getSharedPreferences("alerts", Context.MODE_PRIVATE)
+            .getString("items", null))
+    }
     @Test fun emptyBootDoesNotCreateFakeReminder() {
         BootReceiver().onReceive(context, Intent(Intent.ACTION_BOOT_COMPLETED))
         assertEquals(0, AlertStore.count(context))
