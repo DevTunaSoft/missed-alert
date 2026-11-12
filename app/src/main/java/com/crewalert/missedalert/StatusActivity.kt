@@ -140,9 +140,9 @@ open class StatusActivity : Activity() {
         var uri: Uri? = null
         try {
             val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "?" }
-            val header = "Missed Alert log export\\n" +
-                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\\n" +
-                "App version: $version\\n\\n" + info.text
+            val header = "Missed Alert log export\n" +
+                "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n" +
+                "App version: $version\n\n" + info.text
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
                 put(MediaStore.Downloads.MIME_TYPE, "application/zip")
