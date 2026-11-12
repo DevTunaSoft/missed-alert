@@ -12,12 +12,14 @@ No UI interaction needed. Android 13+ (minSdk 33), Samsung A14–A17.
    **Missed phone calls** are detected from the dialer / Telecom missed-call notification
    (`com.android.server.telecom` channel `TelecomMissedCalls`, Samsung incallui/dialer, Google dialer).
    Incoming and ongoing calls are never tracked.
-2. An alert is **unacknowledged** until its notification is removed (opened, swiped, cleared) or the
-   reminder is acknowledged.
+2. An alert is **unacknowledged** until crew explicitly acknowledges it from the reminder (tap to
+   open the source app, or use ACKNOWLEDGE ALL). Source-app cancellation, including automatic
+   clearing after a message is opened, does not acknowledge the alert.
 3. While anything is unacknowledged, an exact Doze-proof alarm fires every 60 s and posts a
    high-importance reminder on a channel using the **device default notification sound**.
 4. Acknowledge = tap the reminder (opens the source app), tap ACKNOWLEDGE, or swipe it away.
-5. State survives process death; reboot clears it and the listener rebinds on its own.
+5. State survives process death and reboot; the listener rebinds and pending reminders are
+   re-armed when Android permits.
 
 ## Build
 Needs Android Studio, or JDK 17+ and Gradle 8.7+ with the Android SDK (platform 35):
@@ -68,9 +70,8 @@ Your phones run a Knox Manage kiosk, which can block things a normal Android ins
 4. **Kiosk notification policy:** Samsung documents that kiosks with Notification Bar = *Disallow* play
    no notification sounds (KBA-1686). The reminder is a notification, so it is silent in that case.
    The notification policy must allow this app's (and the SMS/MDT apps') notifications.
-5. Crews acknowledge by opening the MDT / text / phone app, which clears its own notification; the
-   reminder then stops by itself. If the MDT app does NOT clear its notification when handled, the
-   reminder keeps repeating – check this in the pilot.
+5. Crews acknowledge from the Missed Alert reminder. Opening the source app is part of the tap
+   flow, but source-app notification clearing alone never stops a pending reminder.
 6. Also test Samsung **Separate app sound**, **Mute all sounds**, Do Not Disturb and a Bluetooth/wired
    route: volume at max does not guarantee the speaker is used. Can't be verified from a build.
 
@@ -106,7 +107,8 @@ deep Doze (stationary, screen off, unplugged). `setAlarmClock()` is exempt, so r
 
 ## Limits to know
 - The tone follows device volume / silent / DND. A phone on silent stays silent.
-- If the source app clears its own notification, that counts as acknowledged.
+- If the source app clears its own notification, the alert remains pending until explicit crew
+  acknowledgment from the Missed Alert reminder.
 
 
 ## XCover Pro / managed background pilot (v1.1)

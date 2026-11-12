@@ -11,7 +11,8 @@ import android.service.notification.StatusBarNotification
  * and rebinds it after reboot / process death.
  *
  * Rule: a notification from a watched app (or a missed-call notification) is "unacknowledged" until it
- * is removed (opened, swiped, cleared, or cancelled by its app) - or the reminder is acknowledged.
+ * remains pending when the source app removes or updates its notification. Only an explicit crew
+ * acknowledgment path removes it from the pending queue.
  */
 class MissedAlertListener : NotificationListenerService() {
 
