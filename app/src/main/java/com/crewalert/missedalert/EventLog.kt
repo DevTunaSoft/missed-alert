@@ -10,7 +10,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Seven complete days of diagnostic events plus the current day.
+ * Fourteen days of bounded diagnostic events, including the current day.
  * Daily files avoid the former 256 KB rolling-log data loss.
  * No message bodies, titles, contact names or phone numbers are logged.
  * Files live in app-specific storage and are deleted only after the retention window.
@@ -19,7 +19,9 @@ object EventLog {
     private const val TAG = "MissedAlert"
     private const val PREFIX = "events-"
     private const val SUFFIX = ".log"
-    private const val RETAIN_DAYS = 8
+    private const val RETAIN_DAYS = 14
+    private const val MAX_TOTAL_BYTES = 50L * 1024 * 1024
+    private var lastPruneDay = ""
 
     private fun stamp(): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
@@ -46,6 +48,14 @@ object EventLog {
             cal.add(Calendar.DAY_OF_YEAR, -1)
         }
         files(c).filter { it.name !in keep }.forEach { it.delete() }
+        val current = "$PREFIX${dateKey()}$SUFFIX"
+        var total = files(c).sumOf { it.length() }
+        for (file in files(c)) {
+            if (total <= MAX_TOTAL_BYTES) break
+            if (file.name == current) continue
+            val size = file.length()
+            if (file.delete()) total -= size
+        }
     }
 
     private fun clean(v: Any?): String =
@@ -61,7 +71,11 @@ object EventLog {
         try {
             val d = dir(c)
             File(d, "$PREFIX${dateKey()}$SUFFIX").appendText(line + "\n")
-            prune(c)
+            val today = dateKey()
+            if (lastPruneDay != today) {
+                prune(c)
+                lastPruneDay = today
+            }
         } catch (_: Exception) {
             // A full or inaccessible disk must never interrupt alert handling.
         }
