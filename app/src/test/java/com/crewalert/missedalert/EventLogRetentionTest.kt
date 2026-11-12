@@ -42,6 +42,18 @@ class EventLogRetentionTest {
         assertTrue(todayFile.readText().contains("current day sentinel"))
     }
 
+    @Test fun dailyLogRotatesAtLimitAndKeepsNewEvents() {
+        val todayFile = File(logDir(),
+            "events-${dateFormat.format(Calendar.getInstance().time)}.log")
+        todayFile.writeText("x".repeat(3 * 1024 * 1024))
+        EventLog.write(context, "after_daily_rotation")
+        assertTrue("daily log must remain bounded", todayFile.length() <= 3L * 1024 * 1024)
+        val text = todayFile.readText()
+        assertTrue("rotation must be recorded", text.contains("log_rotated"))
+        assertTrue("new diagnostic events must survive rotation",
+            text.contains("after_daily_rotation"))
+    }
+
     @Test fun zipExportIncludesHeaderAndRetainedLogWithoutReadingWholeArchiveIntoMemory() {
         EventLog.write(context, "zip_export_test")
         val output = ByteArrayOutputStream()
