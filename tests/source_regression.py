@@ -33,6 +33,7 @@ assert 'RETAIN_DAYS = 14' in read('EventLog')
 assert 'MAX_TOTAL_BYTES = 50L * 1024 * 1024' in read('EventLog')
 assert 'for (file in files(c))' in read('EventLog')
 assert 'prune(c)' in read('EventLog')
+assert '.coerceAtLeast(0)' in read('Config')
 
 # Explicit IT diagnostics must not expose the dashboard to ordinary kiosk apps.
 assert 'android.permission.DUMP' in (root / 'app/src/main/AndroidManifest.xml').read_text()

@@ -57,4 +57,5 @@ object Config {
 
     /** 0 = repeat until acknowledged. */
     fun maxRepeats(c: Context): Int = restrictions(c).getInt("max_repeats", 0)
+        .coerceAtLeast(0)
 }
