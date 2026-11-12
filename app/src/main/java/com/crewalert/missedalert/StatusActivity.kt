@@ -126,7 +126,7 @@ open class StatusActivity : Activity() {
     /** Saves the full event log to Downloads (no file picker and no permissions needed, so it works in a kiosk). */
     private fun exportLog() {
         val name = "MissedAlert-log-" +
-            SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".txt"
+            SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".zip"
         try {
             val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
             val header = "Missed Alert log export\n" +
@@ -134,14 +134,14 @@ open class StatusActivity : Activity() {
                 "App version: $version\n\n" + info.text
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
-                put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                put(MediaStore.Downloads.MIME_TYPE, "application/zip")
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
             }
             val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: throw IllegalStateException("could not create file")
             val output = contentResolver.openOutputStream(uri)
                 ?: throw IllegalStateException("Downloads output stream unavailable")
-            output.use { it.write(EventLog.export(this, header).toByteArray()) }
+            output.use { EventLog.exportZip(this, header, it) }
             EventLog.write(this, "log_exported", "file" to name)
             Toast.makeText(this, "Saved to Downloads/$name", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
