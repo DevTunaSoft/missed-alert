@@ -24,6 +24,7 @@ object EventLog {
     private const val SUFFIX = ".log"
     private const val RETAIN_DAYS = 14
     private const val MAX_TOTAL_BYTES = 50L * 1024 * 1024
+    private const val MAX_DAILY_BYTES = 3L * 1024 * 1024
     private var lastPruneDay = ""
 
     private fun stamp(): String =
@@ -51,11 +52,9 @@ object EventLog {
             cal.add(Calendar.DAY_OF_YEAR, -1)
         }
         files(c).filter { it.name !in keep }.forEach { it.delete() }
-        val current = "$PREFIX${dateKey()}$SUFFIX"
         var total = files(c).sumOf { it.length() }
         for (file in files(c)) {
             if (total <= MAX_TOTAL_BYTES) break
-            if (file.name == current) continue
             val size = file.length()
             if (file.delete()) total -= size
         }
@@ -73,7 +72,12 @@ object EventLog {
         Log.i(TAG, line)
         try {
             val d = dir(c)
-            File(d, "$PREFIX${dateKey()}$SUFFIX").appendText(line + "\n")
+            val daily = File(d, "$PREFIX${dateKey()}$SUFFIX")
+            // Bound even today's log; continue recording after a size rotation.
+            if (daily.length() + line.toByteArray(Charsets.UTF_8).size + 1 > MAX_DAILY_BYTES) {
+                daily.writeText(stamp() + " log_rotated reason=daily_size_limit\n")
+            }
+            daily.appendText(line + "\n")
             val today = dateKey()
             if (lastPruneDay != today) {
                 prune(c)
