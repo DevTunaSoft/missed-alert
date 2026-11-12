@@ -12,6 +12,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.os.SystemClock
+import android.os.PowerManager
+import android.app.AlarmManager
 
 /** Coarse recovery only: Android can defer jobs and cannot restart a force-stopped application. */
 class RecoveryJobService : JobService() {
@@ -64,11 +66,18 @@ class RecoveryJobService : JobService() {
             val listenerHealthy = listenerAccess && MissedAlertListener.instance != null
             val channel = nm.getNotificationChannel("realert_v2")
             val reminderHealthy = postGranted && nm.areNotificationsEnabled() &&
-                channel != null && channel.importance >= NotificationManager.IMPORTANCE_DEFAULT
+                channel != null && channel.importance >= NotificationManager.IMPORTANCE_DEFAULT &&
+                channel.sound != null
+            val batteryExempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+            val exactAlarms = Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
             EventLog.write(this, "self_test",
                 "listener" to (if (listenerHealthy) "pass" else "fail"),
                 "reminder_channel" to (if (reminderHealthy) "pass" else "fail"),
                 "alarm" to (if (alarmHealthy) "pass" else "fail"),
+                "battery_exempt" to batteryExempt,
+                "exact_alarm_allowed" to exactAlarms,
+                "interruption_filter" to nm.currentInterruptionFilter,
+                "channel_sound" to (channel?.sound != null),
                 "pending" to pending,
                 "overdue_ms" to (if (pending > 0 && dueAt > 0L)
                     (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L))
