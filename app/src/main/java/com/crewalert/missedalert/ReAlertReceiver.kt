@@ -10,8 +10,15 @@ class ReAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         synchronized(AlertStore) {
         val dueAt = AlertStore.nextAt(context)
+        val now = SystemClock.elapsedRealtime()
+        // Ignore a duplicate delivery after the first callback has re-armed the
+        // next deadline; otherwise one interval can emit twice and advance repeats twice.
+        if (dueAt > now + 1000L) {
+            EventLog.write(context, "alarm_duplicate_ignored", "until_ms" to (dueAt - now))
+            return
+        }
         val lateMs = if (dueAt > 0L)
-            (SystemClock.elapsedRealtime() - dueAt).coerceAtLeast(0L) else 0L
+            (now - dueAt).coerceAtLeast(0L) else 0L
         val items = try { AlertStore.all(context) } catch (e: Exception) {
             EventLog.write(context, "alert_read_failed", "error" to e.javaClass.simpleName)
             // Unreadable storage is not an empty queue. Preserve state for recovery.
