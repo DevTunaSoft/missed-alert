@@ -50,13 +50,28 @@ class DiagnosticScreenIntegrationTest {
         assertNotNull(findButton(activity.window.decorView, "Refresh device status"))
     }
 
-    @Test fun testButtonPostsNowAndSchedulesRepeatsWithoutCrewEnrollment() {
+    @Test fun diagnosticNotificationDoesNotModifyRealAlerts() {
+        AlertStore.add(context, Item("dispatch", "com.traumasoft.mdt", "", "", 1234L))
+        assertTrue(Scheduler.scheduleNext(context))
+        val due = AlertStore.nextAt(context)
+        val repeats = AlertStore.repeats(context)
         val activity = Robolectric.buildActivity(StatusActivity::class.java).create().start().resume().get()
-        val test = findButton(activity.window.decorView, "TEST: Send alert immediately")
+        val test = findButton(activity.window.decorView, "IT: Test notification delivery (isolated)")
         assertNotNull(test)
         assertTrue(test!!.performClick())
         assertEquals(1, AlertStore.count(activity))
-        assertEquals(1, AlertStore.repeats(activity))
-        assertTrue(AlertStore.nextAt(activity) > 0L)
+        assertEquals("dispatch", AlertStore.all(activity).single().key)
+        assertEquals(repeats, AlertStore.repeats(activity))
+        assertEquals(due, AlertStore.nextAt(activity))
+    }
+
+    @Test fun diagnosticNotificationDoesNotCreatePendingAlert() {
+        val activity = Robolectric.buildActivity(StatusActivity::class.java).create().start().resume().get()
+        val test = findButton(activity.window.decorView, "IT: Test notification delivery (isolated)")
+        assertNotNull(test)
+        assertTrue(test!!.performClick())
+        assertEquals(0, AlertStore.count(activity))
+        assertEquals(0, AlertStore.repeats(activity))
+        assertEquals(0L, AlertStore.nextAt(activity))
     }
 }
