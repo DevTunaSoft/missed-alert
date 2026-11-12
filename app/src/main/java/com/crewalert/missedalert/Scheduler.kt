@@ -18,7 +18,7 @@ object Scheduler {
             pi(c, PendingIntent.FLAG_NO_CREATE) != null
 
     @Synchronized
-    fun scheduleNext(c: Context): Boolean {
+    fun scheduleNext(c: Context, recoveryDelayMs: Long? = null): Boolean {
         if (AlertStore.count(c) == 0) {
             cancel(c)
             return false
@@ -29,7 +29,7 @@ object Scheduler {
             return false
         }
         val am = c.getSystemService(AlarmManager::class.java)
-        val interval = Config.intervalMs(c)
+        val interval = recoveryDelayMs?.coerceIn(1000L, Config.intervalMs(c)) ?: Config.intervalMs(c)
         val p = pi(c, PendingIntent.FLAG_UPDATE_CURRENT) ?: return false
         val exact = try {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
@@ -83,7 +83,9 @@ object Scheduler {
         if (AlertStore.count(c) > 0 && !isPending(c)) {
             EventLog.write(c, "alarm_recover", "late_ms" to
                 (SystemClock.elapsedRealtime() - AlertStore.nextAt(c)).coerceAtLeast(0L))
-            scheduleNext(c)
+            val dueAt = AlertStore.nextAt(c)
+            val overdue = dueAt > 0L && SystemClock.elapsedRealtime() > dueAt
+            scheduleNext(c, if (overdue) 1000L else null)
         }
     }
 
