@@ -26,6 +26,7 @@ object EventLog {
     private const val MAX_TOTAL_BYTES = 50L * 1024 * 1024
     private const val MAX_DAILY_BYTES = 3L * 1024 * 1024
     private var lastPruneDay = ""
+    private val logFilePattern = Regex("""events-\d{4}-\d{2}-\d{2}\.log""")
 
     private fun stamp(): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
@@ -41,7 +42,7 @@ object EventLog {
     private fun files(c: Context): List<File> =
         dir(c).listFiles()?.filter {
             it.isFile && it.name.startsWith(PREFIX) && it.name.endsWith(SUFFIX) &&
-                Regex("""events-\d{4}-\d{2}-\d{2}\.log""").matches(it.name)
+                logFilePattern.matches(it.name)
         }?.sortedBy { it.name } ?: emptyList()
 
     private fun prune(c: Context) {
@@ -53,8 +54,10 @@ object EventLog {
         }
         files(c).filter { it.name !in keep }.forEach { it.delete() }
         var total = files(c).sumOf { it.length() }
+        val current = "$PREFIX${dateKey()}$SUFFIX"
         for (file in files(c)) {
             if (total <= MAX_TOTAL_BYTES) break
+            if (file.name == current) continue
             val size = file.length()
             if (file.delete()) total -= size
         }
@@ -111,7 +114,7 @@ object EventLog {
                     file.inputStream().use { input -> input.copyTo(zip, bufferSize = 8192) }
                 } catch (_: java.io.IOException) {
                     // Preserve a readable failure marker without exposing message content.
-                    zip.write("\\n[log read failed]\\n".toByteArray(Charsets.UTF_8))
+                    zip.write("\n[log read failed]\n".toByteArray(Charsets.UTF_8))
                 }
                 zip.closeEntry()
             }
