@@ -26,7 +26,8 @@ assert 'fun ackOne(' in read('Acker')
 assert 'Acker.ackOne(this' in read('AckActivity')
 assert '.putExtra("key", items.last().key)' in read('Notifier')
 
-assert 'RETAIN_DAYS = 8' in read('EventLog')
+assert 'RETAIN_DAYS = 14' in read('EventLog')
+assert 'MAX_TOTAL_BYTES = 50L * 1024 * 1024' in read('EventLog')
 assert 'for (file in files(c))' in read('EventLog')
 assert 'prune(c)' in read('EventLog')
 
