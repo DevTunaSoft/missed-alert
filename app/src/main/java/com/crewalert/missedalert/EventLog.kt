@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import java.io.File
+import java.io.OutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -88,6 +91,26 @@ object EventLog {
         for (file in files(c)) {
             append("=== ").append(file.name).append(" ===\n")
             try { append(file.readText()) } catch (_: Exception) { append("[unreadable]\n") }
+        }
+    }
+
+    /** Stream diagnostics to a ZIP without buffering the retained logs in memory. */
+    @Synchronized
+    fun exportZip(c: Context, header: String, destination: OutputStream) {
+        ZipOutputStream(destination).use { zip ->
+            zip.putNextEntry(ZipEntry("device-status.txt"))
+            zip.write(header.toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+            for (file in files(c)) {
+                zip.putNextEntry(ZipEntry(file.name))
+                try {
+                    file.inputStream().use { input -> input.copyTo(zip, bufferSize = 8192) }
+                } catch (_: java.io.IOException) {
+                    // Preserve a readable failure marker without exposing message content.
+                    zip.write("\\n[log read failed]\\n".toByteArray(Charsets.UTF_8))
+                }
+                zip.closeEntry()
+            }
         }
     }
 
