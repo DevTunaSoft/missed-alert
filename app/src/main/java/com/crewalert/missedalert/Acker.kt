@@ -19,8 +19,9 @@ object Acker {
             Notifier.cancel(c)
             AlertStore.resetRepeats(c)
         } else {
-            AlertStore.resetRepeats(c)
-            Scheduler.scheduleNext(c)
+            // Other alerts retain their existing reminder deadline and repeat count.
+            // Acknowledging one notification must never postpone the remaining alerts.
+            Scheduler.ensureScheduled(c)
         }
         EventLog.write(c, "acknowledged_one", "source" to source, "remaining" to left)
         }
