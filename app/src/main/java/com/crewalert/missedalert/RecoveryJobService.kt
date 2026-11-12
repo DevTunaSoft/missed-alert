@@ -118,18 +118,25 @@ class RecoveryJobService : JobService() {
                     }
                 }
             }
-            if (!alarmHealthy) EventLog.write(this, "self_test_alarm_recovery")
-            Scheduler.ensureScheduled(this)
-            // Verify recovery in the same job without another wakeup.
-            if (!alarmHealthy) {
-                val recovered = Scheduler.isPending(this)
-                EventLog.write(this, "self_test_recovery_result",
-                    "alarm" to (if (recovered) "pass" else "fail"),
-                    "pending" to AlertStore.count(this),
-                    "next_at_elapsed_ms" to AlertStore.nextAt(this))
-            }
         } catch (e: Exception) {
             EventLog.write(this, "watchdog_failed", "error" to e.javaClass.simpleName)
+        } finally {
+            // A failed permission/channel diagnostic must not skip alarm recovery.
+            try {
+                val pending = AlertStore.count(this)
+                val wasHealthy = pending == 0 || Scheduler.isPending(this)
+                if (!wasHealthy) EventLog.write(this, "self_test_alarm_recovery")
+                Scheduler.ensureScheduled(this)
+                if (!wasHealthy) {
+                    EventLog.write(this, "self_test_recovery_result",
+                        "alarm" to (if (Scheduler.isPending(this)) "pass" else "fail"),
+                        "pending" to AlertStore.count(this),
+                        "next_at_elapsed_ms" to AlertStore.nextAt(this))
+                }
+            } catch (e: Exception) {
+                EventLog.write(this, "watchdog_alarm_recovery_failed",
+                    "error" to e.javaClass.simpleName)
+            }
         }
         return false
     }
