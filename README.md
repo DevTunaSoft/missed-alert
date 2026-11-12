@@ -3,7 +3,8 @@
 **Zero-touch:** nobody opens or configures the app. Knox installs it and grants every permission by policy.
 
 Re-alerts every 60 s (default notification tone + vibration) until the alert is acknowledged.
-No UI interaction needed. Android 13+ (minSdk 33), Samsung A14–A17.
+No UI interaction needed. Android 10+ (minSdk 29), including Samsung XCover Pro and A14–A17,
+subject to physical-device validation.
 
 ## How it works
 1. `MissedAlertListener` (NotificationListenerService) sees every notification from watched apps:
@@ -22,11 +23,13 @@ No UI interaction needed. Android 13+ (minSdk 33), Samsung A14–A17.
    re-armed when Android permits.
 
 ## Build
-Needs Android Studio, or JDK 17+ and Gradle 8.7+ with the Android SDK (platform 35):
+Needs Android Studio, or JDK 17+ and Gradle 8.13 with the Android SDK platform 36 and build tools
+36.0.0:
 
     gradle assembleRelease      # sign it with your release keystore
 
-Package: `com.crewalert.missedalert`. **Not yet compiled** – first build may need small fixes.
+Package: `com.crewalert.missedalert`. CI has compiled and tested the current pilot build; physical
+device and Knox acceptance remain separate gates.
 
 ## Managed configuration (Knox Manage / KSP app config)
 | Key | Type | Default | Purpose |
@@ -83,7 +86,7 @@ app closes: Do Not Disturb (needs policy access Knox Permission Controls doesn't
 crews can't enable it in the kiosk.
 
 ## Android versions
-Built for Android 13–17 (minSdk 33, targetSdk 36). Android 17 behavior-change pages were reviewed:
+Built for Android 10–17 (minSdk 29, targetSdk 36). Android 17 behavior-change pages were reviewed:
 nothing found affecting notification listeners or alarm-clock alarms. The tone is played by the
 system through the notification channel (not by the app), so Android 17's background-audio
 restrictions don't apply. Android 15+ "Notification cooldown" can lower the volume of repeated
