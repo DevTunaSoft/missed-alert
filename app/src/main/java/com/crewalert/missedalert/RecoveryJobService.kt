@@ -96,12 +96,27 @@ class RecoveryJobService : JobService() {
                     "notifications_enabled" to nm.areNotificationsEnabled(),
                     "action" to "grant_in_device_policy_or_settings")
             }
-            if (channel != null && (channel.importance < NotificationManager.IMPORTANCE_DEFAULT ||
-                    channel.sound == null)) {
+            if (channel == null || channel.importance < NotificationManager.IMPORTANCE_DEFAULT ||
+                channel.sound == null) {
                 EventLog.write(this, "reminder_channel_blocker",
-                    "importance" to channel.importance,
-                    "sound_present" to (channel.sound != null),
-                    "action" to "inspect_notification_channel_settings")
+                    "channel_exists" to (channel != null),
+                    "importance" to channel?.importance,
+                    "sound_present" to (channel?.sound != null),
+                    "action" to (if (channel == null) "initialize_notification_channel"
+                        else "inspect_notification_channel_settings"))
+                if (channel == null) {
+                    try {
+                        Notifier.ensureChannel(this)
+                        val created = nm.getNotificationChannel("realert_v2")
+                        EventLog.write(this, "reminder_channel_recovery_result",
+                            "channel_exists" to (created != null),
+                            "importance" to created?.importance,
+                            "sound_present" to (created?.sound != null))
+                    } catch (e: Exception) {
+                        EventLog.write(this, "reminder_channel_recovery_failed",
+                            "error" to e.javaClass.simpleName)
+                    }
+                }
             }
             if (!alarmHealthy) EventLog.write(this, "self_test_alarm_recovery")
             Scheduler.ensureScheduled(this)
