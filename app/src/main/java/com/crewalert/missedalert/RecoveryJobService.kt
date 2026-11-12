@@ -63,6 +63,11 @@ class RecoveryJobService : JobService() {
             val pending = AlertStore.count(this)
             val dueAt = AlertStore.nextAt(this)
             val alarmHealthy = pending == 0 || Scheduler.isPending(this)
+            val listenerState = when {
+                !listenerAccess -> "permission_missing"
+                MissedAlertListener.instance == null -> "disconnected"
+                else -> "connected"
+            }
             val listenerHealthy = listenerAccess && MissedAlertListener.instance != null
             val channel = nm.getNotificationChannel("realert_v2")
             val reminderHealthy = postGranted && nm.areNotificationsEnabled() &&
@@ -72,6 +77,7 @@ class RecoveryJobService : JobService() {
             val exactAlarms = Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
             EventLog.write(this, "self_test",
                 "listener" to (if (listenerHealthy) "pass" else "fail"),
+                "listener_state" to listenerState,
                 "reminder_channel" to (if (reminderHealthy) "pass" else "fail"),
                 "alarm" to (if (alarmHealthy) "pass" else "fail"),
                 "battery_exempt" to batteryExempt,
