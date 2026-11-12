@@ -95,21 +95,31 @@ open class StatusActivity : Activity() {
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
             )
         }
-        btn("TEST: Send alert immediately") {
-            Notifier.ensureChannel(this)
-            AlertStore.add(
-                this,
-                Item("test", packageName, "Test alert", "Repeats every minute until acknowledged", System.currentTimeMillis())
-            )
-            AlertStore.resetRepeats(this)
+        btn("IT: Test notification delivery (isolated)") {
+            // One-shot diagnostic notification; never enters the dispatch queue or scheduler.
             try {
-                Notifier.show(this, AlertStore.all(this), 1)
-                AlertStore.incRepeats(this)
+                val nm = getSystemService(NotificationManager::class.java)
+                val channelId = "it_delivery_test_v1"
+                if (nm.getNotificationChannel(channelId) == null) {
+                    nm.createNotificationChannel(
+                        android.app.NotificationChannel(
+                            channelId, "IT delivery test",
+                            NotificationManager.IMPORTANCE_HIGH
+                        )
+                    )
+                }
+                nm.notify(9494, android.app.Notification.Builder(this, channelId)
+                    .setSmallIcon(android.R.drawable.stat_notify_chat)
+                    .setContentTitle("IT notification delivery test")
+                    .setContentText("Diagnostic only; no dispatch alert was created")
+                    .setAutoCancel(true)
+                    .build())
+                EventLog.write(this, "it_delivery_test_posted")
+                Toast.makeText(this, "Test posted. Verify sound on the device.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                EventLog.write(this, "test_alert_failed", "error" to e.javaClass.simpleName)
-                Toast.makeText(this, "Test alert failed. Check notification permissions.", Toast.LENGTH_LONG).show()
+                EventLog.write(this, "it_delivery_test_failed", "error" to e.javaClass.simpleName)
+                Toast.makeText(this, "Test failed: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
             }
-            Scheduler.scheduleNext(this)
         }
         btn("IT: Acknowledge all pending alerts") { Acker.ackAll(this, "status_screen") }
         btn("Refresh device status") { refresh() }
@@ -202,7 +212,7 @@ open class StatusActivity : Activity() {
                 appendLine()
             }
             appendLine("VERIFY DELIVERY")
-            appendLine("Tap TEST: Send alert immediately. You should receive a notification now; it should repeat until acknowledged.")
+            appendLine("Tap IT: Test notification delivery (isolated). This posts one diagnostic notification without modifying real alerts or scheduling repeats.")
             appendLine("If there is no sound, check channel sound, notification volume, DND, and Knox notification policy.")
             appendLine()
             appendLine("WATCHED APP PACKAGES")
