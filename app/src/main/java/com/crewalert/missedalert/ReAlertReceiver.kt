@@ -11,12 +11,6 @@ class ReAlertReceiver : BroadcastReceiver() {
         synchronized(AlertStore) {
         val dueAt = AlertStore.nextAt(context)
         val now = SystemClock.elapsedRealtime()
-        // Ignore a duplicate delivery after the first callback has re-armed the
-        // next deadline; otherwise one interval can emit twice and advance repeats twice.
-        if (dueAt > now + 1000L) {
-            EventLog.write(context, "alarm_duplicate_ignored", "until_ms" to (dueAt - now))
-            return
-        }
         val lateMs = if (dueAt > 0L)
             (now - dueAt).coerceAtLeast(0L) else 0L
         val items = try { AlertStore.all(context) } catch (e: Exception) {
@@ -30,6 +24,12 @@ class ReAlertReceiver : BroadcastReceiver() {
         if (items.isEmpty()) {
             Scheduler.cancel(context)
             Notifier.cancel(context)
+            return
+        }
+        // Ignore a duplicate delivery after the first callback has re-armed the
+        // next deadline; otherwise one interval can emit twice and advance repeats twice.
+        if (dueAt > now + 1000L) {
+            EventLog.write(context, "alarm_duplicate_ignored", "until_ms" to (dueAt - now))
             return
         }
         try {
