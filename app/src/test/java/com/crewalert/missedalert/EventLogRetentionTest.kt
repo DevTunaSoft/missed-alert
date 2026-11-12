@@ -28,6 +28,12 @@ class EventLogRetentionTest {
         val old = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -30) }
         val oldFile = File(dir, "events-${dateFormat.format(old.time)}.log")
         val todayFile = File(dir, "events-${dateFormat.format(Calendar.getInstance().time)}.log")
+        // Simulate the first retention pass of a fresh process: the singleton
+        // caches the last prune date across Robolectric tests in this JVM.
+        EventLog::class.java.getDeclaredField("lastPruneDay").apply {
+            isAccessible = true
+            set(null, "")
+        }
         oldFile.writeText("expired event\n")
         todayFile.appendText("current day sentinel\n")
         EventLog.write(context, "retention_test")
