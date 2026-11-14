@@ -10,9 +10,7 @@ import android.service.notification.StatusBarNotification
  * Runs with no UI. The system binds this service once the device has granted notification access,
  * and rebinds it after reboot / process death.
  *
- * Rule: a notification from a watched app (or a missed-call notification) is "unacknowledged" until it
- * remains pending when the source app removes or updates its notification. Only an explicit crew
- * acknowledgment path removes it from the pending queue.
+ * Google Messages can also acknowledge through verified SMS inbox read state.
  */
 class MissedAlertListener : NotificationListenerService() {
 
@@ -56,13 +54,13 @@ class MissedAlertListener : NotificationListenerService() {
         try {
         synchronized(AlertStore) {
         if (sbn.packageName == packageName) return
-        // Android distinguishes a user swipe (CANCEL) from source-app removal
-        // (APP_CANCEL); only explicit user dismissals/clicks acknowledge the alert.
-        val userAction = NotificationRemovalPolicy.isUserDismissal(reason)
+        // Google Messages removal reasons cannot establish inbox read state.
+        val googleMessages = sbn.packageName == GoogleSmsAcknowledgment.PACKAGE
+        val userAction = !googleMessages && NotificationRemovalPolicy.isUserDismissal(reason)
         if (!userAction) {
             if (AlertStore.all(this).any { it.key == sbn.key }) {
                 EventLog.write(this, "source_removed_retained", "pkg" to sbn.packageName,
-                    "reason" to reason)
+                    "reason" to reason, "basis" to if (googleMessages) "await_sms_read_check" else "no_user_dismissal")
             }
             return
         }
@@ -140,6 +138,8 @@ class MissedAlertListener : NotificationListenerService() {
                 title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
                 text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
                 postTime = sbn.postTime,
+                smsEvidence = if (pkg == GoogleSmsAcknowledgment.PACKAGE)
+                    GoogleSmsAcknowledgment.evidence(n) else null,
             )
         )
         // Content (title/text) is deliberately NOT logged.

@@ -10,6 +10,7 @@ data class Item(
     val title: String,
     val text: String,
     val postTime: Long,
+    internal val smsEvidence: GoogleSmsAcknowledgment.Evidence? = null,
 )
 
 /** Tiny persistent store so pending alerts survive process death. */
@@ -83,7 +84,11 @@ object AlertStore {
                     EventLog.write(c, "alert_entry_invalid")
                     null
                 } else {
-                    Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"))
+                    val timestamp = j.optLong("smsDate")
+                    val fingerprint = j.optString("smsFingerprint")
+                    val evidence = if (timestamp > 0 && fingerprint.length == 64)
+                        GoogleSmsAcknowledgment.Evidence(timestamp, fingerprint) else null
+                    Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"), evidence)
                 }
             } catch (e: Exception) {
                 EventLog.write(c, "alert_entry_corrupt", "error" to e.javaClass.simpleName)
@@ -95,10 +100,11 @@ object AlertStore {
     @Synchronized
     fun add(c: Context, item: Item) {
         val o = objectItems(c)
-        o.put(
-            item.key,
-            JSONObject().put("pkg", item.pkg).put("t", item.postTime)
-        )
+        val entry = JSONObject().put("pkg", item.pkg).put("t", item.postTime)
+        item.smsEvidence?.let {
+            entry.put("smsDate", it.timestamp).put("smsFingerprint", it.fingerprint)
+        }
+        o.put(item.key, entry)
         if (!p(c).edit().putString("items", o.toString())
                 .putString("items_backup", o.toString()).commit()) {
             EventLog.write(c, "items_commit_failed")

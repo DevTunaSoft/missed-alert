@@ -39,7 +39,7 @@ class ReAlertReceiver : BroadcastReceiver() {
                 EventLog.write(context, "repeat_limit_reached", "max_repeats" to max)
                 return
             }
-            Notifier.show(context, items, n)
+            Notifier.show(context, remaining, n)
             AlertStore.incRepeats(context)
         } catch (e: Exception) {
             EventLog.write(context, "reminder_failed", "error" to e.javaClass.simpleName)

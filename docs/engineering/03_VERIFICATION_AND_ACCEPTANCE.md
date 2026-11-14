@@ -51,3 +51,12 @@ T30 long-duration locked-screen repeat and battery measurement.
 
 ## Acceptance gate
 Do not label production ready until repeat reliability is demonstrated on actual representative managed phones, permissions and Knox policy are reproducible, signing/update path is verified, export is usable, privacy/security checks pass, performance is measured, and all P0 issues have evidence-backed dispositions. Publish exact unresolved risks and rollback steps.
+
+
+## Google Messages acknowledgment pilot
+
+At an existing reminder deadline, the app checks pending Google Messages generations against the SMS inbox. A single MessagingStyle message must match one inbox row by exact timestamp, sender and body. The app stores the timestamp and a fingerprint in the existing queue, and clears a generation only if the matched inbox row is marked read. Notification disappearance, unread or ambiguous rows, and unavailable SMS access leave the alert pending. Other sources follow their existing policy. Manual acknowledgment remains available.
+
+The `sms_ack_evidence` event records the generation and decision without SMS content. `acknowledged_one` records whether other alerts remain. The pilot requires installer allowlisting and a runtime grant for Android's hard-restricted `READ_SMS` permission.
+
+Device acceptance remains pending on the Samsung A15 with Android 16 and the production Knox profile. Verify permission provisioning, notification metadata matching the inbox for actual dispatch senders, ordinary conversation opening, unread swipes, same-thread replacement, multiple conversations, process restart, screen-off cadence and manual acknowledgment. Contact aliases, grouped or redacted notifications, and RCS can lack an exact SMS match and must retain reminders.
