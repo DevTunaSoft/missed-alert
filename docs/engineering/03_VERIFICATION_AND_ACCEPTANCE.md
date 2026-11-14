@@ -60,3 +60,5 @@ At an existing reminder deadline, the app checks pending Google Messages generat
 The `sms_ack_evidence` event records the generation and decision without SMS content. `acknowledged_one` records whether other alerts remain. The pilot requires installer allowlisting and a runtime grant for Android's hard-restricted `READ_SMS` permission.
 
 Device acceptance remains pending on the Samsung A15 with Android 16 and the production Knox profile. Verify permission provisioning, notification metadata matching the inbox for actual dispatch senders, ordinary conversation opening, unread swipes, same-thread replacement, multiple conversations, process restart, screen-off cadence and manual acknowledgment. Contact aliases, grouped or redacted notifications, and RCS can lack an exact SMS match and must retain reminders.
+
+In [run #115](https://github.com/DevTunaSoft/missed-alert/actions/runs/43537420750), all four Google Messages JVM tests passed. Android lint required the manifest to declare telephony hardware optional before the APK build could proceed. SMS evidence extraction is available on Android 11 and later.
