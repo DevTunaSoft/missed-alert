@@ -33,6 +33,9 @@ class ReAlertReceiver : BroadcastReceiver() {
             return
         }
         try {
+            items.forEach { GoogleSmsAcknowledgment.reconcile(context, it) }
+            val remaining = AlertStore.all(context)
+            if (remaining.isEmpty()) return
             val n = AlertStore.repeats(context) + 1
             val max = Config.maxRepeats(context)
             if (max > 0 && n > max) {

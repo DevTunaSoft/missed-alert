@@ -12,8 +12,11 @@ object GoogleSmsAcknowledgment {
     data class Evidence(val timestamp: Long, val fingerprint: String)
 
     fun evidence(notification: Notification): Evidence? {
-        val style = Notification.MessagingStyle.extractMessagingStyleFromNotification(notification)
-        val message = style?.messages?.singleOrNull() ?: return null
+        if (android.os.Build.VERSION.SDK_INT < 30) return null
+        @Suppress("DEPRECATION")
+        val bundles = notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
+        val message = Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles)
+            .singleOrNull() ?: return null
         val sender = message.senderPerson?.name?.toString().orEmpty()
         val body = message.text?.toString().orEmpty()
         if (message.timestamp <= 0 || sender.isBlank() || body.isBlank()) return null

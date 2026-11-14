@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [29])
+@Config(sdk = [33])
 class GoogleSmsAcknowledgmentTest {
     private lateinit var context: Application
     private var read = "0"
