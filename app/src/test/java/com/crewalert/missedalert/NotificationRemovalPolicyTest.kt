@@ -10,6 +10,16 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29])
 class NotificationRemovalPolicyTest {
+    @Test fun onlySourceNotificationClickCountsAsExplicitOpen() {
+        assertTrue(NotificationRemovalPolicy.isExplicitOpen(NLS.REASON_CLICK))
+        for (reason in intArrayOf(NLS.REASON_CANCEL, NLS.REASON_CANCEL_ALL,
+            NLS.REASON_APP_CANCEL, NLS.REASON_APP_CANCEL_ALL,
+            NLS.REASON_LISTENER_CANCEL, NLS.REASON_SNOOZED,
+            NLS.REASON_TIMEOUT, -1)) {
+            assertFalse("reason=$reason", NotificationRemovalPolicy.isExplicitOpen(reason))
+        }
+    }
+
     @Test fun allExplicitUserActionsAcknowledge() {
         for (reason in intArrayOf(NLS.REASON_CLICK, NLS.REASON_CANCEL,
             NLS.REASON_CANCEL_ALL, NLS.REASON_LISTENER_CANCEL,
