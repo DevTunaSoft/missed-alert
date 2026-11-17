@@ -220,8 +220,15 @@ open class StatusActivity : Activity() {
         if (!battery) issues.add("Battery exemption is missing; Knox should allowlist this app.")
         if (!exact) issues.add("Exact alarms are unavailable; repeats can be delayed in Doze.")
         val ready = access && bound && posting && enabled && channelAudible
-        headline.text = if (ready) "MONITORING ACTIVE" else "NOT READY — ACTION REQUIRED"
-        headline.setTextColor(if (ready) Color.rgb(15, 112, 65) else Color.rgb(177, 52, 39))
+        // Alert delivery readiness is independent of SMS read-state access.
+        // A green MONITORING ACTIVE must not imply that auto-ACK is operational.
+        headline.text = when {
+            !ready -> "NOT READY — ACTION REQUIRED"
+            !smsRead -> "MONITORING ACTIVE — SMS AUTO-ACK BLOCKED"
+            else -> "MONITORING ACTIVE"
+        }
+        headline.setTextColor(if (!ready) Color.rgb(177, 52, 39)
+            else if (!smsRead) Color.rgb(143, 95, 12) else Color.rgb(15, 112, 65))
         val pending = try { AlertStore.count(this).toString() }
             catch (_: Exception) { "UNREADABLE — export diagnostics" }
         val watched = try { Config.watchedPackages(this).sorted().joinToString("\n  ") }
