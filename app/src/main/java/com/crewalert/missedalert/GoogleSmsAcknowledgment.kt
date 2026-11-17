@@ -39,29 +39,46 @@ object GoogleSmsAcknowledgment {
             return "sms_permission_unavailable"
         }
         return try {
-            val exactMatches = mutableListOf<Boolean>()
-            val bodyMatches = mutableListOf<Boolean>()
+            // Some SMS apps report slightly different notification and provider timestamps.
+            // Bound the query to two seconds; NEVER acknowledge on time or body alone
+            // when the sender identity can be verified.
+            val lower = (evidence.timestamp - 2000L).coerceAtLeast(0L)
+            val upper = evidence.timestamp + 2000L
+            var exactCount = 0
+            var exactRead = false
+            var aliasCount = 0
+            var aliasRead = false
             context.contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.READ),
-                "${Telephony.Sms.DATE} = ?",
-                arrayOf(evidence.timestamp.toString()),
+                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.READ, Telephony.Sms.DATE),
+                "${Telephony.Sms.DATE} BETWEEN ? AND ?",
+                arrayOf(lower.toString(), upper.toString()),
                 null
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
                     val address = cursor.getString(0) ?: continue
                     val body = cursor.getString(1) ?: continue
-                    val isRead = cursor.getString(2) == "1"
-                    if (fingerprint(address, body) == evidence.fingerprint) exactMatches.add(isRead)
+                    val isRead = cursor.getInt(2) == 1
+                    if (fingerprint(address, body) == evidence.fingerprint) {
+                        exactCount++
+                        exactRead = isRead
+                    }
+                    // Alias fallback must use the EXACT timestamp and one candidate,
+                    // never silently choose among multiple same-body notifications.
                     if (evidence.bodyFingerprint.isNotEmpty() &&
-                        bodyFingerprint(body) == evidence.bodyFingerprint) bodyMatches.add(isRead)
+                        cursor.getLong(3) == evidence.timestamp &&
+                        bodyFingerprint(body) == evidence.bodyFingerprint) {
+                        aliasCount++
+                        aliasRead = isRead
+                    }
+                    if (exactCount > 1 && aliasCount > 1) break
                 }
             } ?: return "provider_unavailable"
             when {
-                exactMatches.size == 1 -> if (exactMatches.single()) "inbox_read" else "inbox_unread"
-                exactMatches.size > 1 -> "ambiguous_inbox_match"
-                bodyMatches.size == 1 -> if (bodyMatches.single()) "inbox_read" else "inbox_unread"
-                bodyMatches.size > 1 -> "ambiguous_inbox_match"
+                exactCount == 1 -> if (exactRead) "inbox_read" else "inbox_unread"
+                exactCount > 1 -> "ambiguous_inbox_match"
+                aliasCount == 1 -> if (aliasRead) "inbox_read" else "inbox_unread"
+                aliasCount > 1 -> "ambiguous_inbox_match"
                 else -> "no_exact_inbox_match"
             }
         } catch (e: RuntimeException) {
