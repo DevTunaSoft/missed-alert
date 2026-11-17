@@ -42,6 +42,12 @@ class RecoveryJobService : JobService() {
             val listenerAccess = nm.isNotificationListenerAccessGranted(listenerComponent)
             val postGranted = Build.VERSION.SDK_INT < 33 ||
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            val smsReadGranted =
+                checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+            EventLog.write(this, "sms_ack_permission_state",
+                "read_sms_granted" to smsReadGranted,
+                "action" to if (smsReadGranted) "available"
+                    else "installer_allowlist_and_dpc_grant_required")
             EventLog.write(this, "watchdog_fired", "pending" to AlertStore.count(this),
                 "listener_bound" to (MissedAlertListener.instance != null),
                 "listener_access" to listenerAccess,
