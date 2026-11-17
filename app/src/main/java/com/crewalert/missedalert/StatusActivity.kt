@@ -90,6 +90,16 @@ open class StatusActivity : Activity() {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
             else Toast.makeText(this, "Permission not required on this Android version", Toast.LENGTH_SHORT).show()
         }
+        btn("IT: Request SMS read permission (pilot)") {
+            // IT-only staging fallback; Android's installer must have allowlisted READ_SMS.
+            // This is NOT an unattended permission grant and does not run at boot.
+            if (checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "SMS read permission already granted", Toast.LENGTH_SHORT).show()
+            } else {
+                EventLog.write(this, "it_sms_permission_requested")
+                requestPermissions(arrayOf(Manifest.permission.READ_SMS), 202)
+            }
+        }
         btn("IT: Open battery optimization settings") {
             startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
@@ -131,6 +141,21 @@ open class StatusActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 202) {
+            val granted = checkSelfPermission(Manifest.permission.READ_SMS) ==
+                PackageManager.PERMISSION_GRANTED
+            EventLog.write(this, "it_sms_permission_result",
+                "granted" to granted,
+                "action" to if (granted) "verify_sms_read_ack"
+                    else "check_installer_restricted_permission_allowlist")
+            refresh()
+        }
     }
 
     /** Stream the report to Downloads; discard incomplete archives after I/O failures. */
