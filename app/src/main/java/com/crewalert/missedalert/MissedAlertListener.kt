@@ -54,13 +54,17 @@ class MissedAlertListener : NotificationListenerService() {
         try {
         synchronized(AlertStore) {
         if (sbn.packageName == packageName) return
-        // Google Messages removal reasons cannot establish inbox read state.
+        // A CLICK means the crew selected this exact source notification.
+        // A swipe, source-app cancellation, or replacement does not prove a
+        // Google Messages conversation was opened or a message was read.
         val googleMessages = sbn.packageName == GoogleSmsAcknowledgment.PACKAGE
-        val userAction = !googleMessages && NotificationRemovalPolicy.isUserDismissal(reason)
+        val userAction = if (googleMessages)
+            NotificationRemovalPolicy.isExplicitOpen(reason)
+        else NotificationRemovalPolicy.isUserDismissal(reason)
         if (!userAction) {
             if (AlertStore.all(this).any { it.key == sbn.key }) {
                 EventLog.write(this, "source_removed_retained", "pkg" to sbn.packageName,
-                    "reason" to reason, "basis" to if (googleMessages) "await_sms_read_check" else "no_user_dismissal")
+                    "reason" to reason, "basis" to if (googleMessages) "await_sms_read_or_click" else "no_user_dismissal")
             }
             return
         }
