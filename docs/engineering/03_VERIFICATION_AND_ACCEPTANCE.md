@@ -62,3 +62,14 @@ The `sms_ack_evidence` event records the generation and decision without SMS con
 Device acceptance remains pending on the Samsung A15 with Android 16 and the production Knox profile. Verify permission provisioning, notification metadata matching the inbox for actual dispatch senders, ordinary conversation opening, unread swipes, same-thread replacement, multiple conversations, process restart, screen-off cadence and manual acknowledgment. Contact aliases, grouped or redacted notifications, and RCS can lack an exact SMS match and must retain reminders.
 
 In [run #115](https://github.com/DevTunaSoft/missed-alert/actions/runs/43537420750), all four Google Messages JVM tests passed. Android lint required the manifest to declare telephony hardware optional before the APK build could proceed. SMS evidence extraction is available on Android 11 and later.
+
+
+## Acknowledgment hardening checkpoint — pilot 1.2.5 (code 8)
+
+- Google Messages source-notification CLICK is treated as explicit handling of that notification generation. Swipes, app cancellation, and notification replacement remain unverified and cannot automatically clear alerts. Opening the conversation from the app launcher still needs SMS read-state verification.
+- A repost of an unchanged notification generation preserves previously captured SMS identity if the new post omits MessagingStyle evidence. Separate generations must never share an acknowledgment marker.
+- Robolectric coverage now includes contact-alias fallback, ambiguous matching, persisted SMS evidence, and the distinction between source-notification clicks and dismissals.
+- The IT dashboard separately flags missing READ_SMS permission. Notification Access alone does not enable SMS read-state verification.
+- **Known limitations:** Directly opening the Phone app/call history does not provide a trustworthy missed-call review signal in the current implementation. RCS opened through the Messages app launcher likewise has no independent read-state verification. READ_SMS is hard-restricted and may be unavailable through the Knox installer. Never assume opening an app proves that a specific message or missed call was handled.
+- **Security caveat:** Timestamp + body-only alias fallback may be ambiguous for same-text messages from different senders; all collisions in the query result must remain pending. Assess field data and tighten sender correlation before fleet rollout.
+- **Verification gate:** CI build and unit tests are not substitutes for real Samsung/Knox controlled tests. Test explicit source click vs swipe, launcher-open SMS, message replacements, call history review, multiple simultaneous messages, Doze/screen-off reminders, and permission degradation.
