@@ -39,20 +39,18 @@ object GoogleSmsAcknowledgment {
             return "sms_permission_unavailable"
         }
         return try {
-            // Some SMS apps report slightly different notification and provider timestamps.
-            // Bound the query to two seconds; NEVER acknowledge on time or body alone
-            // when the sender identity can be verified.
-            val lower = (evidence.timestamp - 2000L).coerceAtLeast(0L)
-            val upper = evidence.timestamp + 2000L
+            // Only an exact provider timestamp proves the notification generation.
+            // A nearby read message with the same sender/body could be an older
+            // dispatch and must never suppress a newer unread alert.
             var exactCount = 0
             var exactRead = false
             var aliasCount = 0
             var aliasRead = false
             context.contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.READ, Telephony.Sms.DATE),
-                "${Telephony.Sms.DATE} BETWEEN ? AND ?",
-                arrayOf(lower.toString(), upper.toString()),
+                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.READ),
+                "${Telephony.Sms.DATE} = ?",
+                arrayOf(evidence.timestamp.toString()),
                 null
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
@@ -63,10 +61,7 @@ object GoogleSmsAcknowledgment {
                         exactCount++
                         exactRead = isRead
                     }
-                    // Alias fallback must use the EXACT timestamp and one candidate,
-                    // never silently choose among multiple same-body notifications.
                     if (evidence.bodyFingerprint.isNotEmpty() &&
-                        cursor.getLong(3) == evidence.timestamp &&
                         bodyFingerprint(body) == evidence.bodyFingerprint) {
                         aliasCount++
                         aliasRead = isRead
