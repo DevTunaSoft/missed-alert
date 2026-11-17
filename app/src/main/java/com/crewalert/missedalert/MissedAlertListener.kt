@@ -127,7 +127,15 @@ class MissedAlertListener : NotificationListenerService() {
 
         val extras = n.extras
         val existing = AlertStore.all(this)
-        val isNewAlert = existing.none { it.key == sbn.key && it.postTime == sbn.postTime }
+        val previousGeneration = existing.firstOrNull {
+            it.key == sbn.key && it.postTime == sbn.postTime
+        }
+        val isNewAlert = previousGeneration == null
+        // Reposts can omit MessagingStyle content. Retain previously captured
+        // evidence for the same notification generation rather than losing it.
+        val extractedSmsEvidence = if (pkg == GoogleSmsAcknowledgment.PACKAGE)
+            GoogleSmsAcknowledgment.evidence(n) else null
+        val stableSmsEvidence = extractedSmsEvidence ?: previousGeneration?.smsEvidence
         // Reposting or updating a source notification must not keep pushing the
         // first reminder 60 seconds into the future. Preserve the earliest alarm.
         AlertStore.add(
@@ -138,8 +146,7 @@ class MissedAlertListener : NotificationListenerService() {
                 title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
                 text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
                 postTime = sbn.postTime,
-                smsEvidence = if (pkg == GoogleSmsAcknowledgment.PACKAGE)
-                    GoogleSmsAcknowledgment.evidence(n) else null,
+                smsEvidence = stableSmsEvidence,
             )
         )
         // Content (title/text) is deliberately NOT logged.
