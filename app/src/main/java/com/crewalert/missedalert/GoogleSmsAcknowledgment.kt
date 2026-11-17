@@ -9,7 +9,7 @@ import java.security.MessageDigest
 
 object GoogleSmsAcknowledgment {
     const val PACKAGE = "com.google.android.apps.messaging"
-    data class Evidence(val timestamp: Long, val fingerprint: String)
+    data class Evidence(val timestamp: Long, val fingerprint: String, val bodyFingerprint: String = "")
 
     fun evidence(notification: Notification): Evidence? {
         if (android.os.Build.VERSION.SDK_INT < 30) return null
@@ -20,12 +20,17 @@ object GoogleSmsAcknowledgment {
         val sender = message.senderPerson?.name?.toString().orEmpty()
         val body = message.text?.toString().orEmpty()
         if (message.timestamp <= 0 || sender.isBlank() || body.isBlank()) return null
-        return Evidence(message.timestamp, fingerprint(sender, body))
+        return Evidence(message.timestamp, fingerprint(sender, body), bodyFingerprint(body))
     }
 
     private fun fingerprint(sender: String, body: String): String =
         MessageDigest.getInstance("SHA-256")
             .digest("${sender.length}:$sender$body".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    private fun bodyFingerprint(body: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(body.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
 
     private fun decision(context: Context, evidence: Evidence?): String {
@@ -34,7 +39,8 @@ object GoogleSmsAcknowledgment {
             return "sms_permission_unavailable"
         }
         return try {
-            val matches = mutableListOf<Boolean>()
+            val exactMatches = mutableListOf<Boolean>()
+            val bodyMatches = mutableListOf<Boolean>()
             context.contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
                 arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.READ),
@@ -45,16 +51,18 @@ object GoogleSmsAcknowledgment {
                 while (cursor.moveToNext()) {
                     val address = cursor.getString(0) ?: continue
                     val body = cursor.getString(1) ?: continue
-                    if (fingerprint(address, body) != evidence.fingerprint) continue
-                    matches.add(cursor.getString(2) == "1")
-                    if (matches.size > 1) break
+                    val isRead = cursor.getString(2) == "1"
+                    if (fingerprint(address, body) == evidence.fingerprint) exactMatches.add(isRead)
+                    if (evidence.bodyFingerprint.isNotEmpty() &&
+                        bodyFingerprint(body) == evidence.bodyFingerprint) bodyMatches.add(isRead)
                 }
             } ?: return "provider_unavailable"
             when {
-                matches.isEmpty() -> "no_exact_inbox_match"
-                matches.size > 1 -> "ambiguous_inbox_match"
-                matches.single() -> "inbox_read"
-                else -> "inbox_unread"
+                exactMatches.size == 1 -> if (exactMatches.single()) "inbox_read" else "inbox_unread"
+                exactMatches.size > 1 -> "ambiguous_inbox_match"
+                bodyMatches.size == 1 -> if (bodyMatches.single()) "inbox_read" else "inbox_unread"
+                bodyMatches.size > 1 -> "ambiguous_inbox_match"
+                else -> "no_exact_inbox_match"
             }
         } catch (e: RuntimeException) {
             EventLog.write(context, "sms_provider_query_failed", "error" to e.javaClass.simpleName)
