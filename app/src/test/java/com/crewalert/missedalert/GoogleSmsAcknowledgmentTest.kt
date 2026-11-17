@@ -98,6 +98,41 @@ class GoogleSmsAcknowledgmentTest {
         assertEquals(replacement, AlertStore.all(context).single())
     }
 
+    @Test fun contactAliasCanMatchSingleReadSmsAfterPersistence() {
+        // Google Messages may display a contact name instead of the provider address.
+        val sender = android.app.Person.Builder().setName("Dispatch Desk").build()
+        val style = android.app.Notification.MessagingStyle(
+            android.app.Person.Builder().setName("Crew").build()
+        ).addMessage("Dispatch", 1000L, sender)
+        val notification = android.app.Notification.Builder(context, "sms").setStyle(style).build()
+        AlertStore.add(context, Item("alias", GoogleSmsAcknowledgment.PACKAGE, "", "",
+            1100L, GoogleSmsAcknowledgment.evidence(notification)))
+        read = "1"
+        reconcile()
+        assertEquals(0, AlertStore.count(context))
+        assertEquals(true, AlertStore.isAcked(context, "alias", 1100L))
+    }
+
+    @Test fun contactAliasAmbiguousMatchesRemainPending() {
+        val sender = android.app.Person.Builder().setName("Dispatch Desk").build()
+        val style = android.app.Notification.MessagingStyle(
+            android.app.Person.Builder().setName("Crew").build()
+        ).addMessage("Dispatch", 1000L, sender)
+        val notification = android.app.Notification.Builder(context, "sms").setStyle(style).build()
+        AlertStore.add(context, Item("alias-ambiguous", GoogleSmsAcknowledgment.PACKAGE,
+            "", "", 1100L, GoogleSmsAcknowledgment.evidence(notification)))
+        read = "1"
+        rows = 2
+        reconcile()
+        assertEquals(1, AlertStore.count(context))
+    }
+
+    @Test fun evidenceSurvivesStoreReload() {
+        val original = item("persisted")
+        AlertStore.add(context, original)
+        assertEquals(original.smsEvidence, AlertStore.all(context).single().smsEvidence)
+    }
+
     @Test fun lastReadSmsCancelsReminder() {
         AlertStore.add(context, item())
         Scheduler.scheduleNext(context)
