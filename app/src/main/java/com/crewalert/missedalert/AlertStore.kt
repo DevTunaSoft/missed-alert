@@ -87,7 +87,8 @@ object AlertStore {
                     val timestamp = j.optLong("smsDate")
                     val fingerprint = j.optString("smsFingerprint")
                     val evidence = if (timestamp > 0 && fingerprint.length == 64)
-                        GoogleSmsAcknowledgment.Evidence(timestamp, fingerprint) else null
+                        GoogleSmsAcknowledgment.Evidence(timestamp, fingerprint,
+                            j.optString("smsBodyFingerprint").takeIf { it.length == 64 }.orEmpty()) else null
                     Item(k, j.optString("pkg"), j.optString("title"), j.optString("text"), j.optLong("t"), evidence)
                 }
             } catch (e: Exception) {
@@ -103,6 +104,7 @@ object AlertStore {
         val entry = JSONObject().put("pkg", item.pkg).put("t", item.postTime)
         item.smsEvidence?.let {
             entry.put("smsDate", it.timestamp).put("smsFingerprint", it.fingerprint)
+                .put("smsBodyFingerprint", it.bodyFingerprint)
         }
         o.put(item.key, entry)
         if (!p(c).edit().putString("items", o.toString())
