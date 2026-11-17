@@ -48,6 +48,8 @@ class DiagnosticScreenIntegrationTest {
         assertTrue(text.contains("Notification access:"))
         assertTrue(text.contains("Listener connected:"))
         assertNotNull(findButton(activity.window.decorView, "Refresh device status"))
+        assertNotNull(findButton(activity.window.decorView, "IT: Request SMS read permission (pilot)"))
+        assertTrue(text.contains("SMS read permission (auto-ack):"))
     }
 
     @Test fun diagnosticNotificationDoesNotModifyRealAlerts() {
