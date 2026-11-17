@@ -1,3 +1,25 @@
+## Pilot 1.2.7: actionable KSP permission repair (verified November 2026)
+
+On a **fully managed** Samsung device, the automatic Notification Access grant is an **EMM/KSP deployment configuration**, not something the Missed Alert APK can grant itself:
+
+1. In the Knox Service Plugin configuration, under **Device-wide policies**, set **Enable device policy controls = True**.
+2. Under **Application management policies**, set **Enable application management controls = True** and **Enable permission controls = True**. All three enable switches are required; filling the package in the policy alone is insufficient.
+3. Under **Permission Controls**, add a configuration with **Permission policy = Notification access** and **Package Name = com.crewalert.missedalert**. KSP 25.12 and later accept package-only values for Notification Access; older KSP versions can require `com.crewalert.missedalert/com.crewalert.missedalert.MissedAlertListener`.
+4. Install the application **before** the special permission is applied. Reapply the policy after installation and updates. Confirm the permission actually reads **OK** on the dashboard after a completely unattended update and reboot. KSP 25.12 added a debug-mode **APPLY LATEST POLICIES** option, for IT troubleshooting only.
+5. Separately grant `android.permission.POST_NOTIFICATIONS` to `com.crewalert.missedalert` using the EMM's Android Enterprise runtime permissions controls. Notification Access and posting permission are not interchangeable.
+6. Separately verify installer allowlisting and DPC/runtime grant for hard-restricted `android.permission.READ_SMS`. **KSP Notification access controls do not grant READ_SMS.** If the installing agent cannot allowlist READ_SMS, stop promising automatic acknowledgment on launcher-open SMS. The no-permission safe path is **tapping the original source notification**; unverified app-side removals and read-state guesses must not silence dispatch reminders.
+7. Ensure that the KSP agent `com.samsung.android.knox.kpu` is allowed to run and battery-optimization exempt if its policies fail to apply. Check the resulting policy **status** rather than trusting saved settings.
+
+The 1.2.7 reminder action **ACKNOWLEDGE THIS** is generation-specific. The crew-facing reminder no longer contains an ACKNOWLEDGE ALL action that could clear independent outstanding alerts. PendingIntent data URIs are unique per notification key/generation, preventing an older reminder from being retargeted.
+
+Evidence required: unattended installation/update; granted Notification Access and notification posting; source notification CLICK stops its exact reminder; an unread or swiped-away alert continues; READ_SMS grant status; normal app-icon SMS read behavior only when the required SMS permission is granted; multiple alerts remain independent; no configuration loss after kiosk transition.
+
+Verified vendor references:
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/kbas/kba-1261-grant-special-permissions-for-an-app/
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/configure-advanced-policies/application-management-policies/
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/release-notes/25-12/
+- https://developer.android.com/reference/android/Manifest.permission#READ_SMS
+
 ## Required Knox provisioning gate — Android 16 SMS pilot
 
 **DO NOT deploy fleet-wide without automated permission grants.** The APK cannot grant Android Notification Access, `POST_NOTIFICATIONS`, or hard-restricted `READ_SMS` to itself. Missing Notification Access prevents detection; missing posting permission prevents audible reminders; missing `READ_SMS` disables verified inbox read-state acknowledgment even if reminders work.
