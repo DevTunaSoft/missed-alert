@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.media.AudioAttributes
 import android.provider.Settings
 
@@ -61,18 +62,27 @@ object Notifier {
             pkg
         }
 
+        val last = items.last()
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val ack = PendingIntent.getBroadcast(c, 2, Intent(c, AckReceiver::class.java), flags)
+        // PendingIntent equality ignores extras. Use per-generation data URIs so an
+        // older reminder action can never be retargeted to a newer alert.
+        val identity = Uri.Builder().scheme("missedalert").authority("generation")
+            .appendPath(last.postTime.toString()).appendPath(last.key).build()
+        val ack = PendingIntent.getBroadcast(
+            c, 2,
+            Intent(c, AckReceiver::class.java).setData(identity.buildUpon().appendPath("ack").build())
+                .putExtra("key", last.key).putExtra("post_time", last.postTime),
+            flags
+        )
         val open = PendingIntent.getActivity(
             c, 3,
-            Intent(c, AckActivity::class.java)
-                .putExtra("pkg", items.last().pkg)
-                .putExtra("key", items.last().key)
-                .putExtra("post_time", items.last().postTime),
+            Intent(c, AckActivity::class.java).setData(identity.buildUpon().appendPath("open").build())
+                .putExtra("pkg", last.pkg)
+                .putExtra("key", last.key)
+                .putExtra("post_time", last.postTime),
             flags
         )
 
-        val last = items.last()
         val inbox = Notification.InboxStyle()
         items.takeLast(5).forEach { inbox.addLine(label(it.pkg)) }
 
@@ -82,7 +92,7 @@ object Notifier {
                 if (items.size == 1) "Unacknowledged: ${label(last.pkg)}"
                 else "${items.size} unacknowledged alerts"
             )
-            .setContentText("Review the source app, then acknowledge this reminder")
+            .setContentText("Review the source alert; this action acknowledges one reminder")
             .setStyle(inbox)
             .setSubText("Reminder #$repeatNo")
             .setCategory(Notification.CATEGORY_MESSAGE)
@@ -92,7 +102,7 @@ object Notifier {
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
             .setContentIntent(open)           // tap = acknowledge + open source app
-            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE ALL", ack).build())
+            .addAction(Notification.Action.Builder(0, "ACKNOWLEDGE THIS", ack).build())
             .build()
         val current = if (repeatNo % 2 == 0) NOTIF_ID_A else NOTIF_ID_B
         val previous = if (repeatNo % 2 == 0) NOTIF_ID_B else NOTIF_ID_A
