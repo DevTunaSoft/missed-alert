@@ -23,6 +23,8 @@ class GoogleSmsAcknowledgmentTest {
     private lateinit var context: Application
     private var read = "0"
     private var rows = 1
+    private var providerTimestamp = 1000L
+    private var providerSender = "+15551234567"
 
     @Before fun setup() {
         context = RuntimeEnvironment.getApplication()
@@ -31,10 +33,14 @@ class GoogleSmsAcknowledgmentTest {
             override fun onCreate() = true
             override fun query(uri: Uri, projection: Array<out String>?, selection: String?,
                 selectionArgs: Array<out String>?, sortOrder: String?): MatrixCursor {
-                assertEquals("date = ?", selection)
-                return MatrixCursor(arrayOf("address", "body", "read")).apply {
-                    if (selectionArgs?.single() == "1000") {
-                        repeat(rows) { addRow(arrayOf("+15551234567", "Dispatch", read)) }
+                assertEquals("date BETWEEN ? AND ?", selection)
+                return MatrixCursor(arrayOf("address", "body", "read", "date")).apply {
+                    if (selectionArgs != null &&
+                        providerTimestamp >= selectionArgs[0].toLong() &&
+                        providerTimestamp <= selectionArgs[1].toLong()) {
+                        repeat(rows) {
+                            addRow(arrayOf(providerSender, "Dispatch", read, providerTimestamp))
+                        }
                     }
                 }
             }
@@ -131,6 +137,28 @@ class GoogleSmsAcknowledgmentTest {
         val original = item("persisted")
         AlertStore.add(context, original)
         assertEquals(original.smsEvidence, AlertStore.all(context).single().smsEvidence)
+    }
+
+    @Test fun senderExactMatchAllowsSmallProviderClockDifference() {
+        AlertStore.add(context, item())
+        providerTimestamp = 2500L
+        read = "1"
+        reconcile()
+        assertEquals(0, AlertStore.count(context))
+    }
+
+    @Test fun aliasCannotAcknowledgeWithDifferentTimestamp() {
+        val sender = android.app.Person.Builder().setName("Dispatch Desk").build()
+        val style = android.app.Notification.MessagingStyle(
+            android.app.Person.Builder().setName("Crew").build()
+        ).addMessage("Dispatch", 1000L, sender)
+        val notification = android.app.Notification.Builder(context, "sms").setStyle(style).build()
+        AlertStore.add(context, Item("alias-clock", GoogleSmsAcknowledgment.PACKAGE,
+            "", "", 1100L, GoogleSmsAcknowledgment.evidence(notification)))
+        providerTimestamp = 1500L
+        read = "1"
+        reconcile()
+        assertEquals(1, AlertStore.count(context))
     }
 
     @Test fun lastReadSmsCancelsReminder() {
