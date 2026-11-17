@@ -1,3 +1,24 @@
+## Required Knox provisioning gate — Android 16 SMS pilot
+
+**DO NOT deploy fleet-wide without automated permission grants.** The APK cannot grant Android Notification Access, `POST_NOTIFICATIONS`, or hard-restricted `READ_SMS` to itself. Missing Notification Access prevents detection; missing posting permission prevents audible reminders; missing `READ_SMS` disables verified inbox read-state acknowledgment even if reminders work.
+
+**Provision the actual installed package `com.crewalert.missedalert` (not Google Messages):**
+
+1. In Knox Service Plugin (KSP) **Permissions Controls / Special access**, enable the **Notification access** grant for `com.crewalert.missedalert` and verify it applies on the target Android/Knox/KSP versions. Component is `com.crewalert.missedalert/.MissedAlertListener`. On supported KSP releases package-only assignment is available; use the policy format offered by your console. Confirm KSP policy status **applied**, not merely configured.
+2. In Knox Manage Android Enterprise app-permission policy, set `POST_NOTIFICATIONS` for the same package to **Grant**. Verify `areNotificationsEnabled` and `realert_v2` channel importance separately.
+3. For `READ_SMS`, **first** check whether the device's installing agent is capable of allowlisting this hard-restricted permission at install time; **then** check whether the device owner can grant it via managed app-permissions policy. A runtime grant alone cannot bypass installer restriction. If either operation is unsupported, record `READ_SMS=BLOCKED`; ordinary opening of SMS in Google Messages cannot be reliably inferred and must remain a pilot blocker. Do not claim Knox grants this without a real-device grant check.
+4. Battery-optimize allowlist both the app and, if KSP policy is failing to apply, `com.samsung.android.knox.kpu`; Samsung documents KSP battery policy issues when its own agent is not exempt. Keep Missed Alert allowed to execute within kiosk.
+5. Stage on **one test device**. After a managed install/update and again after a reboot, verify Dashboard: Notification Access OK; listener connected; posting OK; SMS read permission OK; reminder channel audible; and logs `sms_ack_permission_state read_sms_granted=true`. If `READ_SMS` stays false, test original source-notification clicks only and do not certify app-icon SMS opening.
+6. Validate same signing certificate, updated versionCode, notification channel, and that policy **remains applied without IT manually toggling anything** on a subsequent update. Preserve on-device diagnostics and pending alert data; never uninstall or clear data as a shortcut.
+
+**Precise feature boundary:** Clicking the original SMS/missed-call notification is recognized using Android's source notification click reason. Opening Google Messages via its launcher can only auto-ACK a matched SMS when SMS inbox permission works; RCS has no equivalent provider read-state implementation. Opening the Phone app or call history directly does not reliably prove a particular missed call was reviewed. None of these should silently clear a possibly unattended alert. Unsupported permission paths require enterprise policy redesign or an agreed alternate crew workflow, not broad automatic dismissal.
+
+References:
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/policies.html
+- https://docs.samsungknox.com/admin/knox-platform-for-enterprise/knox-service-plugin/kbas/kba-1151-policies-not-applying-after-installation-on-device/
+- https://developer.android.com/reference/android/Manifest.permission#READ_SMS
+- https://developer.android.com/reference/android/app/admin/DevicePolicyManager#setPermissionGrantState(android.content.ComponentName,%20java.lang.String,%20java.lang.String,%20int)
+
 # Unattended Samsung Knox deployment (zero crew interaction)
 
 App package: `com.crewalert.missedalert`. Knox auto-run launcher: `com.crewalert.missedalert/.BootstrapActivity`. The bootstrap activity has no visible UI, initializes diagnostics, notification channel, watchdog and pending-alarm recovery, then finishes. `StatusActivity` is reserved for IT diagnosis and is not part of the crew launcher.
