@@ -38,7 +38,17 @@ object Acker {
     }
 }
 
-/** "ACKNOWLEDGE" button and swipe-to-dismiss on the reminder both land here. */
+/** Reminder action acknowledges only its own alert generation. Never bulk-clear
+ * independent EMS dispatches by tapping a single notification action.
+ */
 class AckReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = Acker.ackAll(context, "button_or_swipe")
+    override fun onReceive(context: Context, intent: Intent) {
+        val key = intent.getStringExtra("key")
+        val postTime = intent.getLongExtra("post_time", -1L)
+        if (key.isNullOrBlank() || postTime <= 0L) {
+            EventLog.write(context, "ack_action_missing_identity")
+            return
+        }
+        Acker.ackOne(context, key, "reminder_action", postTime)
+    }
 }
