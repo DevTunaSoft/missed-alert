@@ -20,6 +20,27 @@ class ReminderIntentGenerationTest {
         context.getSharedPreferences("alerts", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
+    @Test fun reminderActionAcknowledgesOnlyItsOwnAlert() {
+        AlertStore.add(context, Item("sms", "com.google.android.apps.messaging", "", "", 1100L))
+        AlertStore.add(context, Item("mdt", "com.traumasoft.mdt", "", "", 2200L))
+        Scheduler.scheduleNext(context)
+        val due = AlertStore.nextAt(context)
+        AckReceiver().onReceive(context, android.content.Intent()
+            .putExtra("key", "sms").putExtra("post_time", 1100L))
+        assertEquals(listOf("mdt"), AlertStore.all(context).map { it.key })
+        assertEquals(due, AlertStore.nextAt(context))
+        assertFalse(AlertStore.isAcked(context, "mdt", 2200L))
+    }
+
+    @Test fun unversionedAndStaleActionsCannotClearAnyPendingAlert() {
+        AlertStore.add(context, Item("sms", "com.google.android.apps.messaging", "", "", 2200L))
+        AckReceiver().onReceive(context, android.content.Intent())
+        AckReceiver().onReceive(context, android.content.Intent()
+            .putExtra("key", "sms").putExtra("post_time", 1100L))
+        assertEquals(1, AlertStore.count(context))
+        assertFalse(AlertStore.isAcked(context, "sms", 2200L))
+    }
+
     @Test fun staleReminderTapCannotDismissNewGeneration() {
         AlertStore.add(context, Item("key", "com.test", "", "", 1111L))
         AlertStore.add(context, Item("key", "com.test", "", "", 2222L))
