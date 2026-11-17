@@ -27,7 +27,11 @@ print('15 source contracts passed; NOT an Android runtime test.')
 
 assert 'fun ackOne(' in read('Acker')
 assert 'Acker.ackOne(this' in read('AckActivity')
-assert '.putExtra("key", items.last().key)' in read('Notifier')
+assert '.putExtra("key", last.key)' in read('Notifier')
+assert 'appendPath(last.postTime.toString()).appendPath(last.key)' in read('Notifier')
+assert '"ACKNOWLEDGE THIS"' in read('Notifier')
+assert 'Acker.ackOne(context, key, "reminder_action", postTime)' in read('Acker')
+assert 'ack_action_missing_identity' in read('Acker')
 
 assert 'RETAIN_DAYS = 14' in read('EventLog')
 assert 'MAX_TOTAL_BYTES = 50L * 1024 * 1024' in read('EventLog')
