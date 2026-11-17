@@ -33,13 +33,11 @@ class GoogleSmsAcknowledgmentTest {
             override fun onCreate() = true
             override fun query(uri: Uri, projection: Array<out String>?, selection: String?,
                 selectionArgs: Array<out String>?, sortOrder: String?): MatrixCursor {
-                assertEquals("date BETWEEN ? AND ?", selection)
-                return MatrixCursor(arrayOf("address", "body", "read", "date")).apply {
-                    if (selectionArgs != null &&
-                        providerTimestamp >= selectionArgs[0].toLong() &&
-                        providerTimestamp <= selectionArgs[1].toLong()) {
+                assertEquals("date = ?", selection)
+                return MatrixCursor(arrayOf("address", "body", "read")).apply {
+                    if (selectionArgs?.single() == providerTimestamp.toString()) {
                         repeat(rows) {
-                            addRow(arrayOf(providerSender, "Dispatch", read, providerTimestamp))
+                            addRow(arrayOf(providerSender, "Dispatch", read))
                         }
                     }
                 }
@@ -139,12 +137,12 @@ class GoogleSmsAcknowledgmentTest {
         assertEquals(original.smsEvidence, AlertStore.all(context).single().smsEvidence)
     }
 
-    @Test fun senderExactMatchAllowsSmallProviderClockDifference() {
+    @Test fun nearbyOlderReadSmsCannotAcknowledgeNewerGeneration() {
         AlertStore.add(context, item())
         providerTimestamp = 2500L
         read = "1"
         reconcile()
-        assertEquals(0, AlertStore.count(context))
+        assertEquals(1, AlertStore.count(context))
     }
 
     @Test fun aliasCannotAcknowledgeWithDifferentTimestamp() {
