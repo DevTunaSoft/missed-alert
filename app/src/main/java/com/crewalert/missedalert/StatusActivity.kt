@@ -177,6 +177,8 @@ open class StatusActivity : Activity() {
         val bound = MissedAlertListener.instance != null
         val posting = Build.VERSION.SDK_INT < 33 ||
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val smsRead = checkSelfPermission(Manifest.permission.READ_SMS) ==
+            PackageManager.PERMISSION_GRANTED
         val enabled = nm.areNotificationsEnabled()
         val channel = nm.getNotificationChannel("realert_v2")
         val channelAudible = channel != null && channel.importance >= NotificationManager.IMPORTANCE_DEFAULT
@@ -187,6 +189,7 @@ open class StatusActivity : Activity() {
         if (!access) issues.add("Notification access is OFF. The app cannot read MDT or text alerts.")
         if (access && !bound) issues.add("Notification listener has not connected yet. Check Android restrictions.")
         if (!posting) issues.add("Notification posting permission is OFF.")
+        if (!smsRead) issues.add("SMS read permission is missing; automatic Google SMS acknowledgment is unavailable.")
         if (!enabled) issues.add("Android has disabled notifications for this app.")
         if (!channelAudible) issues.add("Reminder channel is disabled or set to silent/low importance.")
         if (!battery) issues.add("Battery exemption is missing; Knox should allowlist this app.")
@@ -207,6 +210,7 @@ open class StatusActivity : Activity() {
             appendLine()
             appendLine("DEVICE READINESS")
             appendLine("Notification access: ${yes(access)}")
+            appendLine("SMS read permission (auto-ack): ${yes(smsRead)}")
             appendLine("Listener connected: ${yes(bound)}")
             appendLine("Can post notifications: ${yes(posting && enabled)}")
             appendLine("Reminder channel audible: ${yes(channelAudible)}")
